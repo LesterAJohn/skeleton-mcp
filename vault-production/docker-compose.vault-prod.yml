@@ -1,0 +1,19 @@
+services:
+  vault:
+    image: hashicorp/vault:1.18
+    container_name: skeleton-mcp-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+      - "8201:8201"
+    volumes:
+      - ./vault-production/config/vault.hcl:/vault/config/vault.hcl:ro
+      - vault_raft_data:/vault/data
+      - vault_file_data:/vault/file
+    command: vault server -config=/vault/config/vault.hcl
+
+volumes:
+  vault_raft_data:
+  vault_file_data:
