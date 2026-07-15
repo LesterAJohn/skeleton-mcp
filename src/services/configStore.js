@@ -3,8 +3,13 @@ import pg from "pg";
 const { Pool } = pg;
 
 export class ConfigStore {
-  constructor(postgresConfig) {
+  constructor(postgresConfig, options = {}) {
     this.pool = new Pool(postgresConfig);
+    this.defaultUserId = String(options.defaultUserId ?? "default").trim() || "default";
+  }
+
+  normalizeUserId(userId) {
+    return String(userId ?? this.defaultUserId).trim() || this.defaultUserId;
   }
 
   async healthcheck() {
@@ -12,44 +17,54 @@ export class ConfigStore {
     return { ok: true };
   }
 
-  async listConfigs(prefix) {
+  async listConfigs(prefix, userId) {
+    const effectiveUserId = this.normalizeUserId(userId);
     const hasPrefix = Boolean(prefix && prefix.trim());
     const result = hasPrefix
       ? await this.pool.query(
-          "SELECT key, value, updated_at FROM app_config WHERE key ILIKE $1 ORDER BY key ASC",
-          [`${prefix}%`]
+          "SELECT user_id, key, value, updated_at FROM app_config WHERE user_id = $1 AND key ILIKE $2 ORDER BY key ASC",
+          [effectiveUserId, `${prefix}%`]
         )
-      : await this.pool.query("SELECT key, value, updated_at FROM app_config ORDER BY key ASC");
+      : await this.pool.query(
+          "SELECT user_id, key, value, updated_at FROM app_config WHERE user_id = $1 ORDER BY key ASC",
+          [effectiveUserId]
+        );
 
     return result.rows;
   }
 
-  async getConfig(key) {
+  async getConfig(key, userId) {
+    const effectiveUserId = this.normalizeUserId(userId);
     const result = await this.pool.query(
-      "SELECT key, value, updated_at FROM app_config WHERE key = $1",
-      [key]
+      "SELECT user_id, key, value, updated_at FROM app_config WHERE user_id = $1 AND key = $2",
+      [effectiveUserId, key]
     );
 
     return result.rows[0] ?? null;
   }
 
-  async setConfig(key, value) {
+  async setConfig(key, value, userId) {
+    const effectiveUserId = this.normalizeUserId(userId);
     const result = await this.pool.query(
       `
-      INSERT INTO app_config (key, value, updated_at)
-      VALUES ($1, $2::jsonb, NOW())
-      ON CONFLICT (key)
+      INSERT INTO app_config (user_id, key, value, updated_at)
+      VALUES ($1, $2, $3::jsonb, NOW())
+      ON CONFLICT (user_id, key)
       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-      RETURNING key, value, updated_at
+      RETURNING user_id, key, value, updated_at
       `,
-      [key, JSON.stringify(value)]
+      [effectiveUserId, key, JSON.stringify(value)]
     );
 
     return result.rows[0];
   }
 
-  async deleteConfig(key) {
-    const result = await this.pool.query("DELETE FROM app_config WHERE key = $1", [key]);
+  async deleteConfig(key, userId) {
+    const effectiveUserId = this.normalizeUserId(userId);
+    const result = await this.pool.query("DELETE FROM app_config WHERE user_id = $1 AND key = $2", [
+      effectiveUserId,
+      key
+    ]);
     return result.rowCount > 0;
   }
 

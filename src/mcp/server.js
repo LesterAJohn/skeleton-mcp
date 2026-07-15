@@ -70,7 +70,8 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
           name,
           version,
           allowSensitiveOutput,
-          adminAuthConfigured: Boolean(adminAuthKey)
+          adminAuthConfigured: Boolean(adminAuthKey),
+          configDefaultUserId: process.env.MCP_CONFIG_DEFAULT_USER_ID ?? "default"
         },
         vault: vaultService.getConnectionInfo(),
         postgres: {
@@ -103,27 +104,33 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
 
   server.tool(
     "list_configs",
-    "List configuration records from Postgres, optionally filtered by key prefix.",
+    "List configuration records from Postgres for a user scope, optionally filtered by key prefix.",
     {
-      prefix: z.string().min(1).optional()
+      prefix: z.string().min(1).optional(),
+      userId: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ prefix }) => ({
+    withErrorHandling(async ({ prefix, userId }) => ({
       ok: true,
       status: 200,
-      data: await configStore.listConfigs(prefix)
+      data: await configStore.listConfigs(prefix, userId)
     }))
   );
 
   server.tool(
     "get_config",
-    "Read a configuration value from Postgres by key.",
+    "Read a configuration value from Postgres by key and user scope.",
     {
-      key: z.string().min(1)
+      key: z.string().min(1),
+      userId: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ key }) => {
-      const config = await configStore.getConfig(key);
+    withErrorHandling(async ({ key, userId }) => {
+      const config = await configStore.getConfig(key, userId);
       if (!config) {
-        return { ok: false, status: 404, error: `No config found for key: ${key}` };
+        return {
+          ok: false,
+          status: 404,
+          error: `No config found for key: ${key} in user scope: ${userId ?? "default"}`
+        };
       }
 
       return { ok: true, status: 200, data: config };
@@ -132,36 +139,38 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
 
   server.tool(
     "set_config",
-    "Create or update a configuration value in Postgres.",
+    "Create or update a configuration value in Postgres for a user scope.",
     {
       key: z.string().min(1),
       value: z.unknown(),
+      userId: z.string().min(1).optional(),
       authorizationKey: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ key, value, authorizationKey }) => {
+    withErrorHandling(async ({ key, value, userId, authorizationKey }) => {
       assertAuthorized(authorizationKey);
       return {
         ok: true,
         status: 200,
-        data: await configStore.setConfig(key, value)
+        data: await configStore.setConfig(key, value, userId)
       };
     })
   );
 
   server.tool(
     "delete_config",
-    "Delete a configuration value from Postgres by key.",
+    "Delete a configuration value from Postgres by key and user scope.",
     {
       key: z.string().min(1),
+      userId: z.string().min(1).optional(),
       authorizationKey: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ key, authorizationKey }) => {
+    withErrorHandling(async ({ key, userId, authorizationKey }) => {
       assertAuthorized(authorizationKey);
-      const deleted = await configStore.deleteConfig(key);
+      const deleted = await configStore.deleteConfig(key, userId);
       return {
         ok: true,
         status: 200,
-        data: { key, deleted }
+        data: { key, userId: userId ?? "default", deleted }
       };
     })
   );

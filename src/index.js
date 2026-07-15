@@ -5,7 +5,19 @@ import { ConfigStore } from "./services/configStore.js";
 import { VaultService } from "./services/vault.js";
 
 async function main() {
-  const configStore = new ConfigStore(env.postgres);
+  if (env.transport.mode === "http") {
+    await import("./http/index.js");
+    return;
+  }
+
+  if (env.transport.mode === "both") {
+    await import("./start-both.js");
+    return;
+  }
+
+  const configStore = new ConfigStore(env.postgres, {
+    defaultUserId: env.config.defaultUserId
+  });
   const vaultService = new VaultService(env.vault);
 
   const server = createMcpServer({

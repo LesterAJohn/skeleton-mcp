@@ -26,5 +26,45 @@ services:
       - IPC_LOCK
     command: vault server -dev
 
+  mcp-http:
+    image: node:20
+    container_name: skeleton-mcp-http
+    restart: unless-stopped
+    working_dir: /app
+    depends_on:
+      - postgres
+      - vault
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: mcp_config
+      POSTGRES_USER: mcp_user
+      POSTGRES_PASSWORD: mcp_password
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+      VAULT_KV_MOUNT: secret
+      MCP_SERVER_NAME: skeleton-mcp
+      MCP_SERVER_VERSION: 0.1.0
+      MCP_ALLOW_SENSITIVE_OUTPUT: "false"
+      MCP_CONFIG_DEFAULT_USER_ID: default
+      MCP_TRANSPORT_MODE: http
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: 3000
+      MCP_HTTP_PATH: /mcp
+      MCP_HTTP_HEALTH_PATH: /healthz
+      MCP_HTTP_AUTH_MODE: token
+      MCP_HTTP_TOKEN_SOURCE: vault
+      MCP_HTTP_AUTH_TOKENS: replace-me-token
+      MCP_HTTP_VAULT_TOKEN_INDEX_PATH: mcp/http/auth/token-index
+      MCP_HTTP_TRUST_PROXY: "false"
+      MCP_HTTP_MAX_BODY_BYTES: 1048576
+      MCP_HTTP_RATE_LIMIT_WINDOW_MS: 60000
+      MCP_HTTP_RATE_LIMIT_MAX_REQUESTS: 60
+    command: sh -c "npm ci && npm run start:http"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+
 volumes:
   postgres_data:

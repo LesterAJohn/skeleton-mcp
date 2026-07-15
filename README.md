@@ -23,6 +23,9 @@ Runtime flow:
 4. [src/services/vault.js](src/services/vault.js) handles Vault operations and write retry queue.
 5. [src/services/security.js](src/services/security.js) redacts sensitive fields.
 6. [src/mcp/server.js](src/mcp/server.js) registers MCP tools and applies auth/error wrappers.
+7. [src/http/server.js](src/http/server.js) exposes MCP over HTTP with auth, limits, and access logs.
+8. [src/http/index.js](src/http/index.js) boots the dedicated HTTP MCP process.
+9. [src/start-both.js](src/start-both.js) starts stdio and HTTP as separate child processes.
 
 Local infrastructure:
 - [docker-compose.yml](docker-compose.yml) runs Postgres and Vault for local development.
@@ -60,6 +63,38 @@ Core:
 - MCP_SERVER_VERSION
 - MCP_ALLOW_SENSITIVE_OUTPUT
 - MCP_ADMIN_AUTH_KEY
+- MCP_TRANSPORT_MODE (`stdio`, `http`, or `both`)
+- MCP_CONFIG_DEFAULT_USER_ID
+
+HTTP transport:
+- MCP_HTTP_HOST
+- MCP_HTTP_PORT
+- MCP_HTTP_PATH
+- MCP_HTTP_HEALTH_PATH
+- MCP_HTTP_AUTH_MODE (`token`, `oauth2`, `both`)
+- MCP_HTTP_TOKEN_SOURCE (`vault`, `env`)
+- MCP_HTTP_AUTH_TOKENS (comma-separated bearer tokens)
+- MCP_HTTP_TRUST_PROXY
+- MCP_HTTP_ALLOWED_ORIGINS (comma-separated)
+- MCP_HTTP_ALLOWED_IPS (comma-separated)
+- MCP_HTTP_MAX_BODY_BYTES
+- MCP_HTTP_RATE_LIMIT_WINDOW_MS
+- MCP_HTTP_RATE_LIMIT_MAX_REQUESTS
+- MCP_HTTP_VAULT_TOKEN_INDEX_PATH
+- MCP_HTTP_VAULT_TOKEN_DEFAULT_USER_ID
+- MCP_HTTP_VAULT_TOKEN_REQUIRED_SCOPES
+- MCP_HTTP_VAULT_TOKEN_REQUIRED_AUDIENCE
+- MCP_HTTP_VAULT_TOKEN_CACHE_TTL_MS
+- MCP_HTTP_OAUTH2_INTROSPECTION_URL
+- MCP_HTTP_OAUTH2_CLIENT_ID
+- MCP_HTTP_OAUTH2_CLIENT_SECRET
+- MCP_HTTP_OAUTH2_REQUIRED_SCOPES
+- MCP_HTTP_OAUTH2_REQUIRED_AUDIENCE
+- MCP_HTTP_OAUTH2_TIMEOUT_MS
+- MCP_HTTP_OAUTH2_CACHE_TTL_MS
+- MCP_HTTP_TLS_ENABLED
+- MCP_HTTP_TLS_CERT_PATH
+- MCP_HTTP_TLS_KEY_PATH
 
 Postgres:
 - POSTGRES_HOST
@@ -67,6 +102,14 @@ Postgres:
 - POSTGRES_DB
 - POSTGRES_USER
 - POSTGRES_PASSWORD
+
+Postgres config model:
+
+- Configuration data is multi-user scoped in `app_config` using composite key `(user_id, key)`.
+- MCP config tools accept optional `userId`; when omitted, `MCP_CONFIG_DEFAULT_USER_ID` is used.
+- Seed records include:
+	- `default/sample.feature`
+	- `default/app.defaults` for future default parameters.
 
 Vault:
 - VAULT_ADDR
@@ -86,6 +129,103 @@ Reference values are in [.env.example](.env.example).
 4. Seed a test secret in Vault.
 5. Start the MCP server with npm start.
 6. Run tests with npm test.
+
+Transport scripts:
+
+```bash
+# stdio only (default)
+npm run start:stdio
+
+# HTTP transport only
+npm run start:http
+
+# run stdio + HTTP as two processes
+npm run start:both
+```
+
+## HTTP MCP Endpoint
+
+Default endpoint values:
+
+- MCP URL: `http://127.0.0.1:3000/mcp`
+- Health URL: `http://127.0.0.1:3000/healthz`
+
+HTTP transport security controls:
+
+- Every `/mcp` request requires `Authorization: Bearer <token>`.
+- For `MCP_HTTP_AUTH_MODE=token`, set `MCP_HTTP_TOKEN_SOURCE=vault` to validate tokens from Vault.
+- For `MCP_HTTP_AUTH_MODE=oauth2`, bearer tokens are validated by OAuth2 introspection.
+- For `MCP_HTTP_AUTH_MODE=both`, either token strategy can authorize requests.
+- Mutating tools still require `authorizationKey` when `MCP_ADMIN_AUTH_KEY` is set.
+- Request limits are enforced with:
+	- `MCP_HTTP_MAX_BODY_BYTES`
+	- `MCP_HTTP_RATE_LIMIT_WINDOW_MS`
+	- `MCP_HTTP_RATE_LIMIT_MAX_REQUESTS`
+- Optional network restrictions:
+	- `MCP_HTTP_ALLOWED_ORIGINS`
+	- `MCP_HTTP_ALLOWED_IPS`
+
+### Vault Multi-User Token Model
+
+Store HTTP bearer tokens in Vault at `MCP_HTTP_VAULT_TOKEN_INDEX_PATH`.
+
+Default-user fallback behavior:
+
+- `MCP_HTTP_VAULT_TOKEN_DEFAULT_USER_ID` defaults to `default`.
+- If no non-default users exist in the token index, the default user is always used as fallback.
+
+Supported index shape:
+
+```json
+{
+	"tokens": {
+		"<sha256(token)>": {
+			"userId": "user-123",
+			"tokenId": "tok-123",
+			"active": true,
+			"scopes": ["mcp:invoke", "mcp:read"],
+			"audience": ["codex", "claude"],
+			"expiresAt": "2026-12-31T23:59:59Z"
+		}
+	}
+}
+```
+
+Notes:
+
+- Store only token hashes in Vault index data, never plaintext tokens.
+- `MCP_HTTP_VAULT_TOKEN_REQUIRED_SCOPES` and `MCP_HTTP_VAULT_TOKEN_REQUIRED_AUDIENCE` enforce policy checks.
+- This keeps secrets in Vault while configuration remains in Postgres.
+
+Minimal remote call example:
+
+```bash
+curl -i http://127.0.0.1:3000/mcp \
+	-H "Authorization: Bearer replace-me-token" \
+	-H "Accept: application/json, text/event-stream" \
+	-H "Content-Type: application/json" \
+	-d '{
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "initialize",
+		"params": {
+			"protocolVersion": "2025-11-25",
+			"capabilities": {},
+			"clientInfo": { "name": "client", "version": "1.0.0" }
+		}
+	}'
+```
+
+## HTTPS Deployment Choice
+
+This repository uses option 2 (recommended): terminate TLS at a reverse proxy or load balancer.
+
+- Keep this app on internal HTTP.
+- Enforce HTTPS, client allowlists, and edge-level controls at the proxy/LB.
+- Forward traffic to `MCP_HTTP_HOST:MCP_HTTP_PORT`.
+- Keep `MCP_HTTP_TLS_ENABLED=false` in this process mode.
+
+Popular patterns include Nginx, Traefik, Envoy, ALB/NLB, or Cloudflare Tunnel in front of `/mcp`.
 
 ## Vault Production Migration (Raft)
 
@@ -151,6 +291,17 @@ Integration tests in [tests/server.integration.test.js](tests/server.integration
 - Healthcheck behavior
 - Authorization on mutating tools
 - Redaction behavior for secret output
+
+HTTP transport tests in [tests/http.integration.test.js](tests/http.integration.test.js) cover:
+- Unauthorized requests are rejected
+- Authorized MCP initialization succeeds
+- Internal failures return JSON-RPC-compatible error responses
+- Health endpoint behavior
+
+Vault token auth tests in [tests/vault-token-auth.test.js](tests/vault-token-auth.test.js) cover:
+- Multi-user token index lookup by SHA-256 hash
+- Inactive token rejection
+- Scope/audience-aware authorization inputs
 
 Production migration tests in [tests/vault-production.test.js](tests/vault-production.test.js) cover:
 - Presence of Vault production scaffold files
