@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { resolveVaultAgentRuntimeConfig } from "../config/vaultAgentRuntime.js";
 import { createHttpMcpServer } from "./server.js";
 import { createOAuth2IntrospectionVerifier } from "./oauth2.js";
 import { createVaultTokenVerifier } from "./vaultTokenAuth.js";
@@ -16,7 +17,15 @@ async function main() {
   const configStore = new ConfigStore(env.postgres, {
     defaultUserId: env.config.defaultUserId
   });
-  const vaultService = new VaultService(env.vault);
+  const vaultAgentRuntime = await resolveVaultAgentRuntimeConfig({ configStore, env });
+  const vaultService = new VaultService({
+    ...env.vault,
+    agentEnabled: vaultAgentRuntime.enabled,
+    agentAuthMode: vaultAgentRuntime.authMode,
+    agentTokenFilePath: vaultAgentRuntime.tokenFilePath,
+    agentListenerEnabled: vaultAgentRuntime.listenerEnabled,
+    agentListenerAddr: vaultAgentRuntime.listenerAddr
+  });
   const tokenVerifier =
     (env.transport.http.authMode === "token" || env.transport.http.authMode === "both") &&
     env.transport.http.tokenSource === "vault"

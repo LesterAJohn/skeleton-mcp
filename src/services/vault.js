@@ -6,17 +6,24 @@ export class VaultService {
     endpoint,
     token,
     agentEnabled = false,
+    agentAuthMode = "file",
     agentTokenFilePath = "",
+    agentListenerEnabled = false,
+    agentListenerAddr = "",
     kvMount,
     writeRetryAttempts = 3,
     writeRetryBaseDelayMs = 200,
     writeRetryMaxDelayMs = 2000
   }) {
-    this.client = vault({ endpoint, token, apiVersion: "v1" });
+    const effectiveEndpoint = agentListenerEnabled && agentListenerAddr ? agentListenerAddr : endpoint;
+    this.client = vault({ endpoint: effectiveEndpoint, token, apiVersion: "v1" });
     this.endpoint = endpoint;
     this.tokenConfigured = Boolean(token);
     this.agentEnabled = agentEnabled;
+    this.agentAuthMode = agentAuthMode;
     this.agentTokenFilePath = agentTokenFilePath;
+    this.agentListenerEnabled = agentListenerEnabled;
+    this.agentListenerAddr = agentListenerAddr;
     this.kvMount = kvMount;
     this.writeRetryAttempts = writeRetryAttempts;
     this.writeRetryBaseDelayMs = writeRetryBaseDelayMs;
@@ -25,11 +32,18 @@ export class VaultService {
   }
 
   getConnectionInfo() {
+    const usesAgentFile = this.agentEnabled && (this.agentAuthMode === "file" || this.agentAuthMode === "both");
+    const usesAgentListener =
+      this.agentEnabled && (this.agentAuthMode === "listener" || this.agentAuthMode === "both");
+
     return {
       VAULT_ADDR: this.endpoint,
       VAULT_TOKEN: this.tokenConfigured ? "set" : null,
       VAULT_AGENT_ENABLED: this.agentEnabled,
-      VAULT_AGENT_TOKEN_FILE_PATH: this.agentTokenFilePath || null,
+      VAULT_AGENT_AUTH_MODE: this.agentAuthMode,
+      VAULT_AGENT_TOKEN_FILE_PATH: usesAgentFile ? this.agentTokenFilePath || null : null,
+      VAULT_AGENT_LISTENER_ENABLED: usesAgentListener && this.agentListenerEnabled,
+      VAULT_AGENT_LISTENER_ADDR: usesAgentListener ? this.agentListenerAddr || null : null,
       VAULT_KV_MOUNT: this.kvMount,
       VAULT_WRITE_RETRY_ATTEMPTS: this.writeRetryAttempts,
       VAULT_WRITE_RETRY_BASE_DELAY_MS: this.writeRetryBaseDelayMs,
@@ -38,7 +52,7 @@ export class VaultService {
   }
 
   async refreshTokenFromAgentFile() {
-    if (!this.agentEnabled) {
+    if (!this.agentEnabled || (this.agentAuthMode !== "file" && this.agentAuthMode !== "both")) {
       return;
     }
 
@@ -56,7 +70,7 @@ export class VaultService {
   }
 
   async readAgentToken() {
-    if (!this.agentEnabled) {
+    if (!this.agentEnabled || (this.agentAuthMode !== "file" && this.agentAuthMode !== "both")) {
       throw new Error("Vault Agent token file access is disabled");
     }
 

@@ -5,6 +5,7 @@ dotenv.config();
 const TRANSPORT_MODES = new Set(["stdio", "http", "both"]);
 const HTTP_AUTH_MODES = new Set(["token", "oauth2", "both"]);
 const HTTP_TOKEN_SOURCES = new Set(["env", "vault"]);
+const VAULT_AGENT_AUTH_MODES = new Set(["none", "file", "listener", "both"]);
 
 function required(name, fallback) {
   const value = process.env[name] ?? fallback;
@@ -67,6 +68,7 @@ function portNumber(name, fallback) {
 const transportMode = enumValue("MCP_TRANSPORT_MODE", "stdio", TRANSPORT_MODES);
 const httpAuthMode = enumValue("MCP_HTTP_AUTH_MODE", "token", HTTP_AUTH_MODES);
 const httpTokenSource = enumValue("MCP_HTTP_TOKEN_SOURCE", "env", HTTP_TOKEN_SOURCES);
+const vaultAgentAuthMode = enumValue("VAULT_AGENT_AUTH_MODE", "file", VAULT_AGENT_AUTH_MODES);
 const oauth2IntrospectionUrl = process.env.MCP_HTTP_OAUTH2_INTROSPECTION_URL ?? "";
 
 if ((httpAuthMode === "oauth2" || httpAuthMode === "both") && !oauth2IntrospectionUrl) {
@@ -85,6 +87,17 @@ export const env = {
     rotation: {
       defaultIntervalMs: positiveNumber("MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS", "86400000"),
       userIntervalConfigKey: required("MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY", "token.rotation.intervalMs")
+    },
+    vaultAgent: {
+      authModeConfigKey: required("MCP_VAULT_AGENT_AUTH_MODE_CONFIG_KEY", "vault.agent.auth.mode"),
+      tokenFilePathConfigKey: required(
+        "MCP_VAULT_AGENT_TOKEN_FILE_PATH_CONFIG_KEY",
+        "vault.agent.tokenFilePath"
+      ),
+      listenerAddrConfigKey: required(
+        "MCP_VAULT_AGENT_LISTENER_ADDR_CONFIG_KEY",
+        "vault.agent.listener.addr"
+      )
     }
   },
   transport: {
@@ -137,7 +150,10 @@ export const env = {
     endpoint: required("VAULT_ADDR", "http://127.0.0.1:8200"),
     token: required("VAULT_TOKEN", "root"),
     agentEnabled: booleanValue("VAULT_AGENT_ENABLED", false),
+    agentAuthMode: vaultAgentAuthMode,
     agentTokenFilePath: process.env.VAULT_AGENT_TOKEN_FILE_PATH ?? "",
+    agentListenerEnabled: booleanValue("VAULT_AGENT_LISTENER_ENABLED", false),
+    agentListenerAddr: process.env.VAULT_AGENT_LISTENER_ADDR ?? "http://127.0.0.1:8100",
     kvMount: required("VAULT_KV_MOUNT", "secret"),
     writeRetryAttempts: positiveNumber("VAULT_WRITE_RETRY_ATTEMPTS", "3"),
     writeRetryBaseDelayMs: positiveNumber("VAULT_WRITE_RETRY_BASE_DELAY_MS", "200"),

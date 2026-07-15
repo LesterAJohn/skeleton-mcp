@@ -1,5 +1,6 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { env } from "./config/env.js";
+import { resolveVaultAgentRuntimeConfig } from "./config/vaultAgentRuntime.js";
 import { createMcpServer } from "./mcp/server.js";
 import { ConfigStore } from "./services/configStore.js";
 import { VaultService } from "./services/vault.js";
@@ -18,7 +19,15 @@ async function main() {
   const configStore = new ConfigStore(env.postgres, {
     defaultUserId: env.config.defaultUserId
   });
-  const vaultService = new VaultService(env.vault);
+  const vaultAgentRuntime = await resolveVaultAgentRuntimeConfig({ configStore, env });
+  const vaultService = new VaultService({
+    ...env.vault,
+    agentEnabled: vaultAgentRuntime.enabled,
+    agentAuthMode: vaultAgentRuntime.authMode,
+    agentTokenFilePath: vaultAgentRuntime.tokenFilePath,
+    agentListenerEnabled: vaultAgentRuntime.listenerEnabled,
+    agentListenerAddr: vaultAgentRuntime.listenerAddr
+  });
 
   const server = createMcpServer({
     name: env.mcpServerName,

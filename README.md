@@ -74,6 +74,9 @@ Core:
 - MCP_CONFIG_DEFAULT_USER_ID
 - MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS
 - MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY
+- MCP_VAULT_AGENT_AUTH_MODE_CONFIG_KEY
+- MCP_VAULT_AGENT_TOKEN_FILE_PATH_CONFIG_KEY
+- MCP_VAULT_AGENT_LISTENER_ADDR_CONFIG_KEY
 
 HTTP transport:
 - MCP_HTTP_HOST
@@ -119,12 +122,19 @@ Postgres config model:
 - Seed records include:
 	- `default/sample.feature`
 	- `default/app.defaults` for future default parameters.
+	- `default/token.rotation.intervalMs`
+	- `default/vault.agent.auth.mode`
+	- `default/vault.agent.tokenFilePath`
+	- `default/vault.agent.listener.addr`
 
 Vault:
 - VAULT_ADDR
 - VAULT_TOKEN
 - VAULT_AGENT_ENABLED
+- VAULT_AGENT_AUTH_MODE (`none`, `file`, `listener`, `both`)
 - VAULT_AGENT_TOKEN_FILE_PATH
+- VAULT_AGENT_LISTENER_ENABLED
+- VAULT_AGENT_LISTENER_ADDR
 - VAULT_KV_MOUNT
 - VAULT_WRITE_RETRY_ATTEMPTS
 - VAULT_WRITE_RETRY_BASE_DELAY_MS
@@ -225,10 +235,34 @@ These tools are intended for controlled operational usage and are guarded by adm
 Vault Agent can own token auth/renewal while this service reads the sink token file.
 
 - Enable with `VAULT_AGENT_ENABLED=true`
+- Choose auth mode with `VAULT_AGENT_AUTH_MODE`:
+	- `file`: use Vault Agent token sink file
+	- `listener`: use Vault Agent listener endpoint
+	- `both`: enable listener operations and file-based token read workflows
 - Configure sink file path with `VAULT_AGENT_TOKEN_FILE_PATH`
+- Enable listener with `VAULT_AGENT_LISTENER_ENABLED=true`
+- Configure listener with `VAULT_AGENT_LISTENER_ADDR`
 - Use `vault_agent_token_read` when application workflows need token sink visibility
 
-When Vault Agent mode is enabled, Vault operations refresh token state from the configured token sink path.
+When Vault Agent mode is enabled:
+
+- File mode refreshes token state from the configured token sink path.
+- Listener mode routes Vault operations through the configured Vault Agent listener.
+- Both mode supports listener operations and token sink read workflows.
+
+### Option 3: Postgres-Backed Non-Secret Vault Agent Settings
+
+This skeleton supports storing non-secret Vault Agent runtime pointers/settings in Postgres while keeping token material in Vault.
+
+- Runtime settings are read from default user config scope (`MCP_CONFIG_DEFAULT_USER_ID`).
+- Key names are configurable with:
+	- `MCP_VAULT_AGENT_AUTH_MODE_CONFIG_KEY`
+	- `MCP_VAULT_AGENT_TOKEN_FILE_PATH_CONFIG_KEY`
+	- `MCP_VAULT_AGENT_LISTENER_ADDR_CONFIG_KEY`
+- Recommended values in Postgres:
+	- `vault.agent.auth.mode`
+	- `vault.agent.tokenFilePath`
+	- `vault.agent.listener.addr`
 
 ### Rotation Time Configuration
 

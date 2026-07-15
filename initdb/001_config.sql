@@ -40,5 +40,8 @@ INSERT INTO app_config (user_id, key, value)
 VALUES
   ('default', 'sample.feature', '{"enabled": true, "rollout": 25}'),
   ('default', 'app.defaults', '{"version": 1, "parameters": {}}'),
-  ('default', 'token.rotation.intervalMs', '86400000')
+  ('default', 'token.rotation.intervalMs', '86400000'),
+  ('default', 'vault.agent.auth.mode', '"file"'),
+  ('default', 'vault.agent.tokenFilePath', '"/tmp/vault-agent-token"'),
+  ('default', 'vault.agent.listener.addr', '"http://127.0.0.1:8100"')
 ON CONFLICT (user_id, key) DO NOTHING;
