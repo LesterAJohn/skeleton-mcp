@@ -36,10 +36,11 @@ Implementation requirements:
 9. For HTTP token auth changes, preserve Vault token index default-user fallback behavior.
 10. If Vault token lifecycle operations are requested, expose MCP tools for tokenLookupSelf, tokenRenewSelf, tokenCreate, tokenRevoke, tokenRevokeSelf.
 11. If Vault Agent is requested, wire token sink file reading support and expose an MCP tool for application consumption.
-12. If rotation settings are requested, add both default and user-scoped rotation-time configuration paths.
-13. Add tests in tests/*.test.js for happy path, auth failures, redaction behavior, and transport behavior when touched.
-14. Update README.md tool catalog and env variable docs.
-15. Run npm test and report results.
+12. If Vault Agent runtime resolution is touched, add tests that cover listener mode, both mode, and invalid-db-mode env fallback behavior.
+13. If rotation settings are requested, add both default and user-scoped rotation-time configuration paths.
+14. Add tests in tests/*.test.js for happy path, auth failures, redaction behavior, and transport behavior when touched.
+15. Update README.md tool catalog and env variable docs.
+16. Run npm test and report results.
 
 Constraints:
 

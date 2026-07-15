@@ -49,6 +49,7 @@ Use this checklist when adapting the skeleton for a new service.
 - Cover unhappy paths and error responses.
 - If HTTP transport is touched, add/maintain transport-level auth behavior tests.
 - If Vault token model is touched, preserve default-user fallback tests.
+- If Vault Agent runtime resolution is touched, add/maintain listener mode, both mode, and env fallback tests.
 
 ## 7. Operations
 

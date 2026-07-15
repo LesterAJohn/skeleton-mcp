@@ -151,6 +151,15 @@ Reference values are in [.env.example](.env.example).
 5. Start the MCP server with npm start.
 6. Run tests with npm test.
 
+### Test Coverage Notes
+
+Current automation includes listener-related coverage for Vault Agent runtime resolution.
+
+- [tests/vault-agent-runtime.test.js](tests/vault-agent-runtime.test.js) validates:
+	- listener mode resolution from Postgres defaults
+	- both mode resolution (listener + file)
+	- fallback to environment values when database mode is invalid
+
 Transport scripts:
 
 ```bash

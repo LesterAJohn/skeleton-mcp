@@ -20,6 +20,7 @@ Current skeleton capabilities to preserve:
 	- tokenRevoke
 	- tokenRevokeSelf
 - Vault Agent integration pattern for auto-auth and token renewal, including app-readable token sink support.
+- Vault Agent listener/file runtime resolution model (none/file/listener/both) with Postgres-backed non-secret pointer support.
 - Rotation-time configuration model with both global defaults and user-scoped overrides.
 
 Always start by reviewing:
@@ -49,9 +50,10 @@ Required implementation workflow:
 12. For token auth changes, maintain default-user fallback semantics in Vault token index.
 13. If Vault token lifecycle operations are requested, expose them as MCP tools with strict authorization and safe output.
 14. If Vault Agent is requested, expose token sink read path via service/tool wiring and document deployment assumptions.
-15. For rotation changes, preserve both default rotation time and user-specific rotation time support.
-16. Update README.md so new tools and environment variables are documented.
-17. Run npm test before finishing and summarize changes with file paths.
+15. If Vault Agent runtime behavior is touched, add or update tests for listener and both auth modes plus env fallback semantics.
+16. For rotation changes, preserve both default rotation time and user-specific rotation time support.
+17. Update README.md so new tools and environment variables are documented.
+18. Run npm test before finishing and summarize changes with file paths.
 
 Guardrails:
 - Do not remove or weaken redaction behavior.
