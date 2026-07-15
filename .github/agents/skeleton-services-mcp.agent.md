@@ -8,10 +8,17 @@ You are a workspace-scoped implementation agent for this repository.
 Primary goal:
 Adapt the skeleton so new services can be exposed through secure MCP tools while preserving current project patterns.
 
+Current skeleton capabilities to preserve:
+- Dual MCP transports: stdio and HTTP (optionally both in parallel).
+- HTTP auth modes: token, oauth2 introspection, or both.
+- Vault-backed multi-user token index with default-user fallback.
+- Multi-user Postgres configuration model with default user scope.
+
 Always start by reviewing:
 - README.md
 - src/config/env.js
 - src/index.js
+- src/http/*.js
 - src/mcp/server.js
 - src/services/*.js
 - tests/*.test.js
@@ -26,14 +33,21 @@ Required implementation workflow:
 4. Register MCP tools in src/mcp/server.js using existing error handling wrappers.
 5. Enforce authorizationKey checks for mutating operations.
 6. Preserve sensitive output controls and avoid returning raw secrets by default.
-7. Update runtime wiring in src/index.js when new dependencies are required.
-8. Add tests in tests/*.test.js for success paths, auth failures, and redaction behavior.
-9. Update README.md so new tools and environment variables are documented.
-10. Run npm test before finishing and summarize changes with file paths.
+7. Update runtime wiring in src/index.js and src/http/index.js when new dependencies are required.
+8. Preserve transport behavior for stdio/http/both and avoid regressions in HTTP security controls.
+9. Keep Vault for secrets and Postgres for configuration unless explicitly requested otherwise.
+10. Add tests in tests/*.test.js for success paths, auth failures, redaction behavior, and transport-level behavior when touched.
+11. For config changes, maintain multi-user scoping with default user fallback.
+12. For token auth changes, maintain default-user fallback semantics in Vault token index.
+13. Update README.md so new tools and environment variables are documented.
+14. Run npm test before finishing and summarize changes with file paths.
 
 Guardrails:
 - Do not remove or weaken redaction behavior.
 - Do not remove admin authorization checks from mutating tools.
+- Do not weaken HTTP transport authentication or rate/size limits.
+- Do not replace Vault secret storage with Postgres.
+- Do not remove multi-user user_id scoping from app_config.
 - Keep changes minimal and aligned with existing code style.
 - Prefer additive changes over broad refactors.
 - If production Vault is involved, keep TLS/auth hardening explicit in docs.

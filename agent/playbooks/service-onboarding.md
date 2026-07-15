@@ -7,12 +7,15 @@ Use this checklist when adapting the skeleton for a new service.
 - Define required operations (read-only and mutating).
 - Define auth method and required environment variables.
 - Identify sensitive fields for redaction.
+- Define transport expectations (stdio, http, or both).
+- Define whether user-scoped configuration is required.
 
 ## 2. Configuration
 
 - Add env parsing and validation in `src/config/env.js`.
 - Add defaults only for local development-safe values.
 - Keep production-sensitive values required.
+- For config persistence, preserve multi-user scope with default user fallback.
 
 ## 3. Service Adapter
 
@@ -31,6 +34,7 @@ Use this checklist when adapting the skeleton for a new service.
 
 - Wire adapter construction in `src/index.js`.
 - Pass adapter into `createMcpServer` dependencies.
+- If HTTP is touched, update `src/http/index.js` and keep auth/limits intact.
 
 ## 6. Tests
 
@@ -38,6 +42,8 @@ Use this checklist when adapting the skeleton for a new service.
 - Cover auth gates for mutating tools.
 - Cover redaction behavior for sensitive fields.
 - Cover unhappy paths and error responses.
+- If HTTP transport is touched, add/maintain transport-level auth behavior tests.
+- If Vault token model is touched, preserve default-user fallback tests.
 
 ## 7. Operations
 

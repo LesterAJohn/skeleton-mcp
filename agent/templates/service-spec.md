@@ -8,6 +8,8 @@ Use this template to describe a service integration request.
 - Purpose:
 - Base URL / endpoint style:
 - Authentication mechanism:
+- Transport mode (`stdio`, `http`, `both`):
+- HTTP auth mode (`token`, `oauth2`, `both`) when HTTP is used:
 
 ## Operations
 
@@ -35,6 +37,13 @@ Use this template to describe a service integration request.
 - Sensitive fields:
 - Redaction expectations:
 - Audit requirements:
+- Secret storage location (Vault path and shape):
+
+## Data Model
+
+- Config scope (global or per-user):
+- Default user behavior:
+- Future default parameters required:
 
 ## MCP Mapping
 
