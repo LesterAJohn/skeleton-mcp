@@ -28,7 +28,8 @@ function setEnv(updates) {
 function createServices() {
   const calls = {
     setSecret: 0,
-    setConfig: 0
+    setConfig: 0,
+    tokenLookupSelf: 0
   };
 
   const configStore = {
@@ -72,6 +73,25 @@ function createServices() {
     },
     async deleteSecret(path) {
       return { ok: true, path };
+    },
+    async readAgentToken() {
+      return { token: "agent-token", tokenFilePath: "/tmp/vault-agent-token" };
+    },
+    async tokenLookupSelf() {
+      calls.tokenLookupSelf += 1;
+      return { auth: { renewable: true } };
+    },
+    async tokenRenewSelf() {
+      return { auth: { lease_duration: 3600 } };
+    },
+    async tokenCreate() {
+      return { auth: { client_token: "new-token" } };
+    },
+    async tokenRevoke() {
+      return { revoked: true };
+    },
+    async tokenRevokeSelf() {
+      return { revoked: true };
     }
   };
 
@@ -174,6 +194,36 @@ test("set_config enforces admin authorization key when configured", async () => 
     assert.equal(authorized.payload.ok, true);
     assert.equal(authorized.payload.status, 200);
     assert.equal(calls.setConfig, 1);
+  } finally {
+    restoreEnv();
+  }
+});
+
+test("token_lookup_self enforces admin authorization key when configured", async () => {
+  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret" });
+
+  try {
+    const { configStore, vaultService, calls } = createServices();
+    const server = createMcpServer({
+      name: "skeleton-mcp",
+      version: "0.1.0",
+      configStore,
+      vaultService
+    });
+
+    const unauthorized = await invokeTool(server, "token_lookup_self", {});
+
+    assert.equal(unauthorized.result.isError, true);
+    assert.equal(unauthorized.payload.status, 401);
+    assert.equal(calls.tokenLookupSelf, 0);
+
+    const authorized = await invokeTool(server, "token_lookup_self", {
+      authorizationKey: "super-secret"
+    });
+
+    assert.equal(authorized.payload.ok, true);
+    assert.equal(authorized.payload.status, 200);
+    assert.equal(calls.tokenLookupSelf, 1);
   } finally {
     restoreEnv();
   }

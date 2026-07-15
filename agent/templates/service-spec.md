@@ -10,6 +10,8 @@ Use this template to describe a service integration request.
 - Authentication mechanism:
 - Transport mode (`stdio`, `http`, `both`):
 - HTTP auth mode (`token`, `oauth2`, `both`) when HTTP is used:
+- Vault token lifecycle methods to expose:
+- Vault Agent token sink read requirement:
 
 ## Operations
 
@@ -44,6 +46,8 @@ Use this template to describe a service integration request.
 - Config scope (global or per-user):
 - Default user behavior:
 - Future default parameters required:
+- Rotation time default value:
+- Rotation time user override fields:
 
 ## MCP Mapping
 

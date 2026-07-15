@@ -13,6 +13,14 @@ Current skeleton capabilities to preserve:
 - HTTP auth modes: token, oauth2 introspection, or both.
 - Vault-backed multi-user token index with default-user fallback.
 - Multi-user Postgres configuration model with default user scope.
+- Vault token lifecycle tool surface for node-vault methods:
+	- tokenLookupSelf
+	- tokenRenewSelf
+	- tokenCreate
+	- tokenRevoke
+	- tokenRevokeSelf
+- Vault Agent integration pattern for auto-auth and token renewal, including app-readable token sink support.
+- Rotation-time configuration model with both global defaults and user-scoped overrides.
 
 Always start by reviewing:
 - README.md
@@ -39,8 +47,11 @@ Required implementation workflow:
 10. Add tests in tests/*.test.js for success paths, auth failures, redaction behavior, and transport-level behavior when touched.
 11. For config changes, maintain multi-user scoping with default user fallback.
 12. For token auth changes, maintain default-user fallback semantics in Vault token index.
-13. Update README.md so new tools and environment variables are documented.
-14. Run npm test before finishing and summarize changes with file paths.
+13. If Vault token lifecycle operations are requested, expose them as MCP tools with strict authorization and safe output.
+14. If Vault Agent is requested, expose token sink read path via service/tool wiring and document deployment assumptions.
+15. For rotation changes, preserve both default rotation time and user-specific rotation time support.
+16. Update README.md so new tools and environment variables are documented.
+17. Run npm test before finishing and summarize changes with file paths.
 
 Guardrails:
 - Do not remove or weaken redaction behavior.
@@ -48,6 +59,7 @@ Guardrails:
 - Do not weaken HTTP transport authentication or rate/size limits.
 - Do not replace Vault secret storage with Postgres.
 - Do not remove multi-user user_id scoping from app_config.
+- Do not expose raw Vault tokens in tool responses unless explicitly requested and guarded.
 - Keep changes minimal and aligned with existing code style.
 - Prefer additive changes over broad refactors.
 - If production Vault is involved, keep TLS/auth hardening explicit in docs.

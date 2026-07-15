@@ -71,7 +71,12 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
           version,
           allowSensitiveOutput,
           adminAuthConfigured: Boolean(adminAuthKey),
-          configDefaultUserId: process.env.MCP_CONFIG_DEFAULT_USER_ID ?? "default"
+          configDefaultUserId: process.env.MCP_CONFIG_DEFAULT_USER_ID ?? "default",
+          tokenRotationDefaultIntervalMs: Number(
+            process.env.MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS ?? "86400000"
+          ),
+          tokenRotationUserIntervalConfigKey:
+            process.env.MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY ?? "token.rotation.intervalMs"
         },
         vault: vaultService.getConnectionInfo(),
         postgres: {
@@ -183,6 +188,131 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
       ok: true,
       status: 200,
       data: vaultService.getConnectionInfo()
+    }))
+  );
+
+  server.tool(
+    "vault_agent_token_read",
+    "Read Vault Agent token sink content for application token consumption. Requires admin authorization.",
+    {
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ authorizationKey }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.readAgentToken()
+      };
+    })
+  );
+
+  server.tool(
+    "token_lookup_self",
+    "Call Vault tokenLookupSelf via node-vault. Requires admin authorization.",
+    {
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ authorizationKey }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.tokenLookupSelf()
+      };
+    })
+  );
+
+  server.tool(
+    "token_renew_self",
+    "Call Vault tokenRenewSelf via node-vault. Requires admin authorization.",
+    {
+      increment: z.string().min(1).optional(),
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ increment, authorizationKey }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.tokenRenewSelf(increment)
+      };
+    })
+  );
+
+  server.tool(
+    "token_create",
+    "Call Vault tokenCreate via node-vault. Requires admin authorization.",
+    {
+      role_name: z.string().min(1).optional(),
+      policies: z.array(z.string().min(1)).optional(),
+      ttl: z.string().min(1).optional(),
+      period: z.string().min(1).optional(),
+      renewable: z.boolean().optional(),
+      explicit_max_ttl: z.string().min(1).optional(),
+      num_uses: z.number().int().nonnegative().optional(),
+      display_name: z.string().min(1).optional(),
+      meta: z.record(z.string(), z.string()).optional(),
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ authorizationKey, ...options }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.tokenCreate(options)
+      };
+    })
+  );
+
+  server.tool(
+    "token_revoke",
+    "Call Vault tokenRevoke via node-vault for the specified token. Requires admin authorization.",
+    {
+      token: z.string().min(1),
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ token, authorizationKey }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.tokenRevoke(token)
+      };
+    })
+  );
+
+  server.tool(
+    "token_revoke_self",
+    "Call Vault tokenRevokeSelf via node-vault. Requires admin authorization.",
+    {
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ authorizationKey }) => {
+      assertAuthorized(authorizationKey);
+      return {
+        ok: true,
+        status: 200,
+        data: await vaultService.tokenRevokeSelf()
+      };
+    })
+  );
+
+  server.tool(
+    "token_rotation_config",
+    "Return effective token rotation interval from user-scoped config with default fallback.",
+    {
+      userId: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ userId }) => ({
+      ok: true,
+      status: 200,
+      data: await configStore.getTokenRotationIntervalMs({
+        userId,
+        userIntervalConfigKey:
+          process.env.MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY ?? "token.rotation.intervalMs",
+        defaultIntervalMs: Number(process.env.MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS ?? "86400000")
+      })
     }))
   );
 

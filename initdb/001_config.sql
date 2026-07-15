@@ -39,5 +39,6 @@ CREATE INDEX IF NOT EXISTS app_config_key_idx ON app_config (key);
 INSERT INTO app_config (user_id, key, value)
 VALUES
   ('default', 'sample.feature', '{"enabled": true, "rollout": 25}'),
-  ('default', 'app.defaults', '{"version": 1, "parameters": {}}')
+  ('default', 'app.defaults', '{"version": 1, "parameters": {}}'),
+  ('default', 'token.rotation.intervalMs', '86400000')
 ON CONFLICT (user_id, key) DO NOTHING;

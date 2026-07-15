@@ -41,12 +41,19 @@ Read-only tools:
 - get_config
 - list_secrets
 - get_secret
+- vault_agent_token_read
+- token_lookup_self
+- token_rotation_config
 
 Mutating tools:
 - set_config
 - delete_config
 - set_secret
 - delete_secret
+- token_renew_self
+- token_create
+- token_revoke
+- token_revoke_self
 
 If MCP_ADMIN_AUTH_KEY is configured, mutating tools require authorizationKey.
 
@@ -65,6 +72,8 @@ Core:
 - MCP_ADMIN_AUTH_KEY
 - MCP_TRANSPORT_MODE (`stdio`, `http`, or `both`)
 - MCP_CONFIG_DEFAULT_USER_ID
+- MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS
+- MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY
 
 HTTP transport:
 - MCP_HTTP_HOST
@@ -114,6 +123,8 @@ Postgres config model:
 Vault:
 - VAULT_ADDR
 - VAULT_TOKEN
+- VAULT_AGENT_ENABLED
+- VAULT_AGENT_TOKEN_FILE_PATH
 - VAULT_KV_MOUNT
 - VAULT_WRITE_RETRY_ATTEMPTS
 - VAULT_WRITE_RETRY_BASE_DELAY_MS
@@ -196,6 +207,43 @@ Notes:
 - Store only token hashes in Vault index data, never plaintext tokens.
 - `MCP_HTTP_VAULT_TOKEN_REQUIRED_SCOPES` and `MCP_HTTP_VAULT_TOKEN_REQUIRED_AUDIENCE` enforce policy checks.
 - This keeps secrets in Vault while configuration remains in Postgres.
+
+### Vault Token Lifecycle MCP Tools
+
+The skeleton exposes node-vault token lifecycle methods as MCP tools:
+
+- `token_lookup_self` -> `tokenLookupSelf`
+- `token_renew_self` -> `tokenRenewSelf`
+- `token_create` -> `tokenCreate`
+- `token_revoke` -> `tokenRevoke`
+- `token_revoke_self` -> `tokenRevokeSelf`
+
+These tools are intended for controlled operational usage and are guarded by admin authorization when `MCP_ADMIN_AUTH_KEY` is configured.
+
+### Vault Agent Auto-Auth and Token Renewal
+
+Vault Agent can own token auth/renewal while this service reads the sink token file.
+
+- Enable with `VAULT_AGENT_ENABLED=true`
+- Configure sink file path with `VAULT_AGENT_TOKEN_FILE_PATH`
+- Use `vault_agent_token_read` when application workflows need token sink visibility
+
+When Vault Agent mode is enabled, Vault operations refresh token state from the configured token sink path.
+
+### Rotation Time Configuration
+
+Rotation interval supports both global defaults and user-scoped overrides:
+
+- Global default env variable: `MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS`
+- User-scoped config key name: `MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY` (default `token.rotation.intervalMs`)
+
+Effective value resolution is:
+
+1. User-scoped Postgres config (`userId` + key)
+2. Default user Postgres config (`default` + key)
+3. Global env default
+
+Use `token_rotation_config` tool to inspect the resolved rotation interval for a user scope.
 
 Minimal remote call example:
 

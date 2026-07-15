@@ -68,6 +68,38 @@ export class ConfigStore {
     return result.rowCount > 0;
   }
 
+  async getTokenRotationIntervalMs({ userId, userIntervalConfigKey, defaultIntervalMs }) {
+    const effectiveUserId = this.normalizeUserId(userId);
+    const scopedConfig = await this.getConfig(userIntervalConfigKey, effectiveUserId);
+    const scopedValue = Number(scopedConfig?.value);
+    if (Number.isFinite(scopedValue) && scopedValue > 0) {
+      return {
+        intervalMs: scopedValue,
+        source: "user",
+        userId: effectiveUserId,
+        key: userIntervalConfigKey
+      };
+    }
+
+    const defaultScopedConfig = await this.getConfig(userIntervalConfigKey, this.defaultUserId);
+    const defaultScopedValue = Number(defaultScopedConfig?.value);
+    if (Number.isFinite(defaultScopedValue) && defaultScopedValue > 0) {
+      return {
+        intervalMs: defaultScopedValue,
+        source: "default-user",
+        userId: this.defaultUserId,
+        key: userIntervalConfigKey
+      };
+    }
+
+    return {
+      intervalMs: defaultIntervalMs,
+      source: "env-default",
+      userId: this.defaultUserId,
+      key: userIntervalConfigKey
+    };
+  }
+
   async close() {
     await this.pool.end();
   }

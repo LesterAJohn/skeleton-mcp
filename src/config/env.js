@@ -81,7 +81,11 @@ export const env = {
   allowSensitiveOutput: String(process.env.MCP_ALLOW_SENSITIVE_OUTPUT ?? "").toLowerCase() === "true",
   adminAuthKey: process.env.MCP_ADMIN_AUTH_KEY ?? "",
   config: {
-    defaultUserId: required("MCP_CONFIG_DEFAULT_USER_ID", "default")
+    defaultUserId: required("MCP_CONFIG_DEFAULT_USER_ID", "default"),
+    rotation: {
+      defaultIntervalMs: positiveNumber("MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS", "86400000"),
+      userIntervalConfigKey: required("MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY", "token.rotation.intervalMs")
+    }
   },
   transport: {
     mode: transportMode,
@@ -132,6 +136,8 @@ export const env = {
   vault: {
     endpoint: required("VAULT_ADDR", "http://127.0.0.1:8200"),
     token: required("VAULT_TOKEN", "root"),
+    agentEnabled: booleanValue("VAULT_AGENT_ENABLED", false),
+    agentTokenFilePath: process.env.VAULT_AGENT_TOKEN_FILE_PATH ?? "",
     kvMount: required("VAULT_KV_MOUNT", "secret"),
     writeRetryAttempts: positiveNumber("VAULT_WRITE_RETRY_ATTEMPTS", "3"),
     writeRetryBaseDelayMs: positiveNumber("VAULT_WRITE_RETRY_BASE_DELAY_MS", "200"),

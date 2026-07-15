@@ -19,6 +19,9 @@ Collect and use this service spec:
 - Transport requirements (stdio/http/both):
 - HTTP auth mode (token/oauth2/both):
 - Config scope (default user only vs multi-user):
+- Vault token lifecycle methods needed (lookup/renew/create/revoke/revoke-self):
+- Vault Agent token sink path and read exposure requirements:
+- Rotation time defaults and user override requirements:
 
 Implementation requirements:
 
@@ -31,9 +34,12 @@ Implementation requirements:
 7. Keep secrets in Vault and configuration data in Postgres unless explicitly requested otherwise.
 8. For config-related changes, preserve multi-user scope with default user fallback.
 9. For HTTP token auth changes, preserve Vault token index default-user fallback behavior.
-10. Add tests in tests/*.test.js for happy path, auth failures, redaction behavior, and transport behavior when touched.
-11. Update README.md tool catalog and env variable docs.
-12. Run npm test and report results.
+10. If Vault token lifecycle operations are requested, expose MCP tools for tokenLookupSelf, tokenRenewSelf, tokenCreate, tokenRevoke, tokenRevokeSelf.
+11. If Vault Agent is requested, wire token sink file reading support and expose an MCP tool for application consumption.
+12. If rotation settings are requested, add both default and user-scoped rotation-time configuration paths.
+13. Add tests in tests/*.test.js for happy path, auth failures, redaction behavior, and transport behavior when touched.
+14. Update README.md tool catalog and env variable docs.
+15. Run npm test and report results.
 
 Constraints:
 

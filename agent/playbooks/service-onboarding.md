@@ -9,6 +9,8 @@ Use this checklist when adapting the skeleton for a new service.
 - Identify sensitive fields for redaction.
 - Define transport expectations (stdio, http, or both).
 - Define whether user-scoped configuration is required.
+- Define whether Vault token lifecycle operations are required (lookup/renew/create/revoke/revoke-self).
+- Define whether Vault Agent token sink access is required by the application.
 
 ## 2. Configuration
 
@@ -16,6 +18,7 @@ Use this checklist when adapting the skeleton for a new service.
 - Add defaults only for local development-safe values.
 - Keep production-sensitive values required.
 - For config persistence, preserve multi-user scope with default user fallback.
+- When rotation policies are needed, define a default rotation time and per-user override strategy.
 
 ## 3. Service Adapter
 
@@ -29,6 +32,8 @@ Use this checklist when adapting the skeleton for a new service.
 - Route read-only operations without admin key.
 - Protect mutating operations with `authorizationKey` checks.
 - Keep tool responses JSON-serializable and redactable.
+- If requested, expose Vault token lifecycle tools using node-vault methods with strict auth guardrails.
+- If requested, expose a read tool for Vault Agent token sink material needed by the application.
 
 ## 5. Runtime Wiring
 
