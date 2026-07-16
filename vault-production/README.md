@@ -70,6 +70,12 @@ By default, conversion and unseal helpers read key material in this order:
 2. `src/config/vault.unseal.key.json`
 3. Generate and save a 24-character key in `src/config/vault.unseal.key.json` when the file is missing/empty
 
+Schema carryover:
+
+- Seeded Postgres config is stored in `skeleton_config`.
+- Vault token index data should live under `skeleton/http/auth/token-index` unless overridden.
+- External Vault and Postgres stores should use the same app-prefixed table/path names as local development.
+
 Compose startup behavior:
 
 - `docker-compose.vault-prod.yml` runs a one-shot `vault-unseal-key-init` service before starting Vault.

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS app_config (
+CREATE TABLE IF NOT EXISTS skeleton_config (
   user_id TEXT NOT NULL DEFAULT 'default',
   key TEXT NOT NULL,
   value JSONB NOT NULL,
@@ -6,37 +6,22 @@ CREATE TABLE IF NOT EXISTS app_config (
   PRIMARY KEY (user_id, key)
 );
 
-ALTER TABLE app_config
+ALTER TABLE skeleton_config
   ADD COLUMN IF NOT EXISTS user_id TEXT;
 
-UPDATE app_config
+UPDATE skeleton_config
 SET user_id = 'default'
 WHERE user_id IS NULL OR trim(user_id) = '';
 
-ALTER TABLE app_config
+ALTER TABLE skeleton_config
   ALTER COLUMN user_id SET DEFAULT 'default';
 
-ALTER TABLE app_config
+ALTER TABLE skeleton_config
   ALTER COLUMN user_id SET NOT NULL;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'app_config_pkey'
-      AND conrelid = 'app_config'::regclass
-  ) THEN
-    ALTER TABLE app_config DROP CONSTRAINT app_config_pkey;
-  END IF;
+CREATE INDEX IF NOT EXISTS skeleton_config_key_idx ON skeleton_config (key);
 
-  ALTER TABLE app_config ADD CONSTRAINT app_config_pkey PRIMARY KEY (user_id, key);
-END
-$$;
-
-CREATE INDEX IF NOT EXISTS app_config_key_idx ON app_config (key);
-
-INSERT INTO app_config (user_id, key, value)
+INSERT INTO skeleton_config (user_id, key, value)
 VALUES
   ('default', 'sample.feature', '{"enabled": true, "rollout": 25}'),
   ('default', 'app.defaults', '{"version": 1, "parameters": {}}'),

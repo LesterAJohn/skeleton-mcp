@@ -6,6 +6,7 @@ services:
     working_dir: /app
     command: sh -c "npm run vault:unseal-key -- --json"
     environment:
+      APP_NAME: ${APP_NAME:-skeleton}
       VAULT_UNSEAL_KEY: ${VAULT_UNSEAL_KEY:-}
     volumes:
       - ./:/app

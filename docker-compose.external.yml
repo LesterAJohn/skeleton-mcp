@@ -5,11 +5,13 @@ services:
     restart: unless-stopped
     working_dir: /app
     environment:
+      APP_NAME: ${APP_NAME:-skeleton}
       POSTGRES_HOST: ${POSTGRES_HOST:?set POSTGRES_HOST for external Postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:?set POSTGRES_PORT for external Postgres}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB for external Postgres}
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER for external Postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD for external Postgres}
+      POSTGRES_CONFIG_TABLE: ${POSTGRES_CONFIG_TABLE:-skeleton_config}
       VAULT_ADDR: ${VAULT_ADDR:?set VAULT_ADDR for external Vault}
       VAULT_TOKEN: ${VAULT_TOKEN:?set VAULT_TOKEN for external Vault}
       VAULT_AGENT_ENABLED: "true"
@@ -35,7 +37,7 @@ services:
       MCP_HTTP_AUTH_MODE: token
       MCP_HTTP_TOKEN_SOURCE: vault
       MCP_HTTP_AUTH_TOKENS: replace-me-token
-      MCP_HTTP_VAULT_TOKEN_INDEX_PATH: mcp/http/auth/token-index
+      MCP_HTTP_VAULT_TOKEN_INDEX_PATH: ${MCP_HTTP_VAULT_TOKEN_INDEX_PATH:-skeleton/http/auth/token-index}
       MCP_HTTP_TRUST_PROXY: "false"
       MCP_HTTP_MAX_BODY_BYTES: 1048576
       MCP_HTTP_RATE_LIMIT_WINDOW_MS: 60000

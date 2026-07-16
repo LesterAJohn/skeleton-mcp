@@ -24,11 +24,15 @@ test("vault-production scaffold files exist", () => {
 
 test("vault production config uses raft storage", () => {
   const config = fs.readFileSync(configPath, "utf8");
+  const initdb = fs.readFileSync(path.join(rootDir, "initdb", "001_config.sql"), "utf8");
 
   assert.match(config, /storage\s+"raft"\s*\{/);
   assert.match(config, /path\s*=\s*"\/vault\/data"/);
   assert.match(config, /node_id\s*=\s*"vault-1"/);
   assert.match(config, /listener\s+"tcp"\s*\{/);
+  assert.match(initdb, /CREATE TABLE IF NOT EXISTS skeleton_config/);
+  assert.match(initdb, /INSERT INTO skeleton_config/);
+  assert.match(initdb, /CREATE INDEX IF NOT EXISTS skeleton_config_key_idx/);
 });
 
 test("prod compose runs vault in config mode and not dev mode", () => {

@@ -30,7 +30,7 @@ Runtime flow:
 Local infrastructure:
 - [docker-compose.yml](docker-compose.yml) runs Postgres and Vault for local development.
 - [docker-compose.external.yml](docker-compose.external.yml) runs only the MCP app against external Postgres and Vault services.
-- [initdb/001_config.sql](initdb/001_config.sql) creates and seeds the app_config table.
+- [initdb/001_config.sql](initdb/001_config.sql) creates and seeds the `skeleton_config` table.
 
 ## Tool Catalog
 
@@ -118,7 +118,7 @@ Postgres:
 
 Postgres config model:
 
-- Configuration data is multi-user scoped in `app_config` using composite key `(user_id, key)`.
+- Configuration data is multi-user scoped in `skeleton_config` using composite key `(user_id, key)`.
 - MCP config tools accept optional `userId`; when omitted, `MCP_CONFIG_DEFAULT_USER_ID` is used.
 - Seed records include:
 	- `default/sample.feature`
@@ -141,6 +141,12 @@ Vault:
 - VAULT_WRITE_RETRY_ATTEMPTS
 - VAULT_WRITE_RETRY_BASE_DELAY_MS
 - VAULT_WRITE_RETRY_MAX_DELAY_MS
+
+Naming defaults:
+
+- `APP_NAME` defaults to `skeleton`.
+- `POSTGRES_CONFIG_TABLE` defaults to `${APP_NAME}_config`, which is `skeleton_config` by default.
+- `MCP_HTTP_VAULT_TOKEN_INDEX_PATH` defaults to `${APP_NAME}/http/auth/token-index`, which is `skeleton/http/auth/token-index` by default.
 
 Reference values are in [.env.example](.env.example).
 
@@ -256,7 +262,7 @@ Notes:
 
 - Store only token hashes in Vault index data, never plaintext tokens.
 - `MCP_HTTP_VAULT_TOKEN_REQUIRED_SCOPES` and `MCP_HTTP_VAULT_TOKEN_REQUIRED_AUDIENCE` enforce policy checks.
-- This keeps secrets in Vault while configuration remains in Postgres.
+- This keeps secrets in Vault under the app-prefixed root while configuration remains in the app-prefixed Postgres table.
 
 ### Vault Token Lifecycle MCP Tools
 

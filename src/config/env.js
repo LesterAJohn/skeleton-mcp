@@ -6,6 +6,7 @@ const TRANSPORT_MODES = new Set(["stdio", "http", "both"]);
 const HTTP_AUTH_MODES = new Set(["token", "oauth2", "both"]);
 const HTTP_TOKEN_SOURCES = new Set(["env", "vault"]);
 const VAULT_AGENT_AUTH_MODES = new Set(["none", "file", "listener", "both"]);
+const appName = String(process.env.APP_NAME ?? "skeleton").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-") || "skeleton";
 
 function required(name, fallback) {
   const value = process.env[name] ?? fallback;
@@ -78,6 +79,7 @@ if ((httpAuthMode === "oauth2" || httpAuthMode === "both") && !oauth2Introspecti
 }
 
 export const env = {
+  appName,
   mcpServerName: process.env.MCP_SERVER_NAME ?? "skeleton-mcp",
   mcpServerVersion: process.env.MCP_SERVER_VERSION ?? "0.1.0",
   allowSensitiveOutput: String(process.env.MCP_ALLOW_SENSITIVE_OUTPUT ?? "").toLowerCase() === "true",
@@ -144,7 +146,8 @@ export const env = {
     port: Number(required("POSTGRES_PORT", "5432")),
     database: required("POSTGRES_DB", "mcp_config"),
     user: required("POSTGRES_USER", "mcp_user"),
-    password: required("POSTGRES_PASSWORD", "mcp_password")
+    password: required("POSTGRES_PASSWORD", "mcp_password"),
+    configTable: required("POSTGRES_CONFIG_TABLE", `${appName}_config`)
   },
   vault: {
     endpoint: required("VAULT_ADDR", "http://127.0.0.1:8200"),
@@ -156,6 +159,7 @@ export const env = {
     agentListenerEnabled: booleanValue("VAULT_AGENT_LISTENER_ENABLED", false),
     agentListenerAddr: process.env.VAULT_AGENT_LISTENER_ADDR ?? "http://127.0.0.1:8100",
     kvMount: required("VAULT_KV_MOUNT", "secret"),
+    tokenIndexPath: required("MCP_HTTP_VAULT_TOKEN_INDEX_PATH", `${appName}/http/auth/token-index`),
     writeRetryAttempts: positiveNumber("VAULT_WRITE_RETRY_ATTEMPTS", "3"),
     writeRetryBaseDelayMs: positiveNumber("VAULT_WRITE_RETRY_BASE_DELAY_MS", "200"),
     writeRetryMaxDelayMs: positiveNumber("VAULT_WRITE_RETRY_MAX_DELAY_MS", "2000")

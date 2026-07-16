@@ -15,7 +15,7 @@ test("vault token verifier authorizes active user token from token index", async
   const verifier = createVaultTokenVerifier({
     vaultService: {
       async getSecret(path) {
-        assert.equal(path, "mcp/http/auth/token-index");
+        assert.equal(path, "skeleton/http/auth/token-index");
         return {
           tokens: {
             [tokenHash]: {
@@ -29,7 +29,7 @@ test("vault token verifier authorizes active user token from token index", async
         };
       }
     },
-    indexPath: "mcp/http/auth/token-index",
+    indexPath: "skeleton/http/auth/token-index",
     requiredScopes: ["mcp:invoke"],
     requiredAudience: "codex",
     cacheTtlMs: 30_000
@@ -61,7 +61,7 @@ test("vault token verifier rejects inactive or missing scope tokens", async () =
         };
       }
     },
-    indexPath: "mcp/http/auth/token-index",
+    indexPath: "skeleton/http/auth/token-index",
     requiredScopes: ["mcp:invoke"],
     requiredAudience: "codex",
     cacheTtlMs: 30_000
@@ -90,7 +90,7 @@ test("vault token verifier supports top-level hash map format", async () => {
         };
       }
     },
-    indexPath: "mcp/http/auth/token-index",
+    indexPath: "skeleton/http/auth/token-index",
     requiredScopes: ["mcp:invoke"],
     requiredAudience: "claude",
     cacheTtlMs: 30_000
@@ -125,7 +125,7 @@ test("vault token verifier falls back to default user when no other users exist"
         };
       }
     },
-    indexPath: "mcp/http/auth/token-index",
+    indexPath: "skeleton/http/auth/token-index",
     defaultUserId: "default",
     requiredScopes: ["mcp:invoke"],
     requiredAudience: "codex",

@@ -17,7 +17,8 @@ async function main() {
   }
 
   const configStore = new ConfigStore(env.postgres, {
-    defaultUserId: env.config.defaultUserId
+    defaultUserId: env.config.defaultUserId,
+    tableName: env.postgres.configTable
   });
   const vaultAgentRuntime = await resolveVaultAgentRuntimeConfig({ configStore, env });
   const vaultService = new VaultService({

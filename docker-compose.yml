@@ -6,6 +6,7 @@ services:
     working_dir: /app
     command: sh -c "npm run vault:unseal-key -- --json"
     environment:
+      APP_NAME: ${APP_NAME:-skeleton}
       VAULT_UNSEAL_KEY: ${VAULT_UNSEAL_KEY:-}
     volumes:
       - ./:/app
@@ -37,6 +38,7 @@ services:
     ports:
       - "8200:8200"
     environment:
+      APP_NAME: ${APP_NAME:-skeleton}
       VAULT_UNSEAL_KEY: ${VAULT_UNSEAL_KEY:-}
     cap_add:
       - IPC_LOCK
@@ -56,6 +58,7 @@ services:
       POSTGRES_DB: mcp_config
       POSTGRES_USER: mcp_user
       POSTGRES_PASSWORD: mcp_password
+      POSTGRES_CONFIG_TABLE: ${POSTGRES_CONFIG_TABLE:-skeleton_config}
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: root
       VAULT_AGENT_ENABLED: "true"
@@ -81,7 +84,7 @@ services:
       MCP_HTTP_AUTH_MODE: token
       MCP_HTTP_TOKEN_SOURCE: vault
       MCP_HTTP_AUTH_TOKENS: replace-me-token
-      MCP_HTTP_VAULT_TOKEN_INDEX_PATH: mcp/http/auth/token-index
+      MCP_HTTP_VAULT_TOKEN_INDEX_PATH: ${MCP_HTTP_VAULT_TOKEN_INDEX_PATH:-skeleton/http/auth/token-index}
       MCP_HTTP_TRUST_PROXY: "false"
       MCP_HTTP_MAX_BODY_BYTES: 1048576
       MCP_HTTP_RATE_LIMIT_WINDOW_MS: 60000
