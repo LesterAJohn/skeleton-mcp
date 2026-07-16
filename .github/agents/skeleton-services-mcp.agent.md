@@ -36,7 +36,6 @@ Current skeleton capabilities to preserve:
 - Compose startup init helper (`vault-unseal-key-init`) that resolves managed unseal key material before Vault starts.
 - App-only external deployment mode (`docker-compose.external.yml`) for existing Vault and Postgres services.
 - `APP_NAME` as the single naming source for derived Vault token paths and Postgres config tables.
-- Environment-driven compose exposed port mappings with known defaults.
 
 Always start by reviewing:
 - [README.md](README.md)
@@ -83,9 +82,8 @@ Required implementation workflow:
 19. Update README.md so new tools and environment variables are documented.
 20. Run npm test before finishing and summarize changes with file paths.
 21. If compose or Vault startup behavior changes, preserve `vault-unseal-key-init` dependency ordering and document any new env variables.
-22. If compose port mappings are touched, keep exposed host ports configurable via env vars with known defaults.
-23. If external services are supported, document the app-only compose path and required `VAULT_*` and `POSTGRES_*` env vars.
-24. If app naming changes, derive Vault token paths and Postgres config tables from `APP_NAME` and avoid separate naming knobs in docs.
+22. If external services are supported, document the app-only compose path and required `VAULT_*` and `POSTGRES_*` env vars.
+23. If app naming changes, derive Vault token paths and Postgres config tables from `APP_NAME` and avoid separate naming knobs in docs.
 
 Guardrails:
 - Do not remove or weaken redaction behavior.
