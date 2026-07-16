@@ -192,6 +192,7 @@ HTTP transport:
 Postgres:
 - POSTGRES_HOST
 - POSTGRES_PORT
+- POSTGRES_EXPOSED_PORT (host-exposed Docker port; default `5432`)
 - POSTGRES_DB
 - POSTGRES_USER
 - POSTGRES_PASSWORD
@@ -210,6 +211,8 @@ Postgres config model:
 
 Vault:
 - VAULT_ADDR
+- VAULT_EXPOSED_PORT (host-exposed Docker port; default `8200`)
+- VAULT_CLUSTER_EXPOSED_PORT (host-exposed Docker port for cluster listener in production compose; default `8201`)
 - VAULT_TOKEN
 - VAULT_AGENT_ENABLED
 - VAULT_AGENT_AUTH_MODE (`none`, `file`, `listener`, `both`)
@@ -221,6 +224,9 @@ Vault:
 - VAULT_WRITE_RETRY_ATTEMPTS
 - VAULT_WRITE_RETRY_BASE_DELAY_MS
 - VAULT_WRITE_RETRY_MAX_DELAY_MS
+
+Compose-exposed HTTP:
+- MCP_HTTP_EXPOSED_PORT (host-exposed Docker port for `mcp-http`; default `3000`)
 
 Naming defaults:
 

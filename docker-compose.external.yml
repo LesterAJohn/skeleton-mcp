@@ -42,6 +42,6 @@ services:
       MCP_HTTP_RATE_LIMIT_MAX_REQUESTS: 60
     command: sh -c "npm ci && npm run start:http"
     ports:
-      - "3000:3000"
+      - "${MCP_HTTP_EXPOSED_PORT:-3000}:3000"
     volumes:
       - ./:/app

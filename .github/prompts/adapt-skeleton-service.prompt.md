@@ -57,6 +57,7 @@ Implementation requirements:
 20. If app naming is configurable, use `APP_NAME` as the single source for derived Vault and Postgres names.
 21. If bearer-token seeding is part of the request, add a guarded MCP tool and, when helpful, a CLI helper that writes the same Vault token index shape.
 22. If OAuth token seeding is part of the request, add a guarded MCP tool and, when helpful, a CLI helper that writes the same Vault token index shape.
+23. If compose port mappings are touched, keep exposed host ports configurable via env vars with known defaults and document them.
 
 Documentation freshness requirements:
 

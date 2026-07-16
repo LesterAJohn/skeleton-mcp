@@ -59,6 +59,7 @@ Use this checklist when adapting the skeleton for a new service.
 - If infra changes are required, update compose files and migration assets.
 - Preserve Vault Raft persistence in both local and production compose definitions when Vault settings are touched.
 - Preserve startup init flow that resolves managed key material before Vault starts (`vault-unseal-key-init`).
+- Keep all compose-exposed ports environment-driven with safe defaults when compose port mappings are touched.
 - Keep `VAULT_UNSEAL_KEY` and `src/config/vault.unseal.key.json` behavior aligned with docs when unseal workflows are touched.
 - Document an app-only compose path for environments where Vault and Postgres are external services.
 - Treat `docker-compose.external.yml` as the supported startup shape for external Vault/Postgres deployments.
