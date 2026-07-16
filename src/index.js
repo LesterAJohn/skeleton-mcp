@@ -1,9 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { env } from "./config/env.js";
-import { resolveVaultAgentRuntimeConfig } from "./config/vaultAgentRuntime.js";
 import { createMcpServer } from "./mcp/server.js";
-import { ConfigStore } from "./services/configStore.js";
-import { VaultService } from "./services/vault.js";
+import { TeslaMateClient } from "./services/teslamate.js";
 
 async function main() {
   if (env.transport.mode === "http") {
@@ -16,32 +14,19 @@ async function main() {
     return;
   }
 
-  const configStore = new ConfigStore(env.postgres, {
-    defaultUserId: env.config.defaultUserId,
-    tableName: env.postgres.configTable
-  });
-  const vaultAgentRuntime = await resolveVaultAgentRuntimeConfig({ configStore, env });
-  const vaultService = new VaultService({
-    ...env.vault,
-    agentEnabled: vaultAgentRuntime.enabled,
-    agentAuthMode: vaultAgentRuntime.authMode,
-    agentTokenFilePath: vaultAgentRuntime.tokenFilePath,
-    agentListenerEnabled: vaultAgentRuntime.listenerEnabled,
-    agentListenerAddr: vaultAgentRuntime.listenerAddr
-  });
+  const teslamateClient = new TeslaMateClient(env.teslamate);
 
   const server = createMcpServer({
     name: env.mcpServerName,
     version: env.mcpServerVersion,
-    configStore,
-    vaultService
+    teslamateClient
   });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
   const shutdown = async () => {
-    await configStore.close();
+    await server.close();
     process.exit(0);
   };
 

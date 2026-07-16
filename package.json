@@ -1,9 +1,9 @@
 {
-  "name": "skeleton-mcp",
+  "name": "teslamate-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Node.js MCP skeleton with Vault secrets and Postgres configuration storage",
+  "description": "MCP server for TeslaMate APIs",
   "main": "src/index.js",
   "scripts": {
     "dev": "node --watch src/index.js",

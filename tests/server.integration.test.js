@@ -25,81 +25,47 @@ function setEnv(updates) {
   };
 }
 
-function createServices() {
+function createTeslaMateClientMock() {
   const calls = {
-    setSecret: 0,
-    setConfig: 0,
-    tokenLookupSelf: 0,
-    getSecretPaths: [],
-    setSecretPayloads: []
+    suspend: 0,
+    resume: 0,
+    request: 0
   };
 
-  const configStore = {
-    async healthcheck() {
-      return { ok: true };
-    },
-    async listConfigs() {
-      return [{ key: "sample.feature", value: { enabled: true } }];
-    },
-    async getConfig() {
-      return { key: "sample.feature", value: { enabled: true }, updated_at: "2026-01-01T00:00:00.000Z" };
-    },
-    async setConfig(key, value) {
-      calls.setConfig += 1;
-      return { key, value, updated_at: "2026-01-01T00:00:00.000Z" };
-    },
-    async deleteConfig(key) {
-      return key === "sample.feature";
-    }
-  };
-
-  const vaultService = {
+  const client = {
     getConnectionInfo() {
-      return { VAULT_ADDR: "http://127.0.0.1:8200", VAULT_TOKEN: "set", VAULT_KV_MOUNT: "secret" };
-    },
-    async healthcheck() {
-      return { ok: true };
-    },
-    async listSecrets() {
-      return ["demo"];
-    },
-    async getSecret() {
-      calls.getSecretPaths.push("demo");
       return {
-        access_token: "abc123",
-        region: "us-east-1"
+        baseUrl: "http://127.0.0.1:4000",
+        authMode: "none"
       };
     },
-    async setSecret(path, value) {
-      calls.setSecret += 1;
-      calls.setSecretPayloads.push({ path, value });
-      return { ok: true, path, value };
+    listKnownEndpoints() {
+      return [{ method: "GET", path: "/health_check" }];
     },
-    async deleteSecret(path) {
-      return { ok: true, path };
+    async healthCheck() {
+      return { status: 200, data: null };
     },
-    async readAgentToken() {
-      return { token: "agent-token", tokenFilePath: "/tmp/vault-agent-token" };
+    async suspendLogging(carId) {
+      calls.suspend += 1;
+      return { ok: true, carId };
     },
-    async tokenLookupSelf() {
-      calls.tokenLookupSelf += 1;
-      return { auth: { renewable: true } };
+    async resumeLogging(carId) {
+      calls.resume += 1;
+      return { ok: true, carId };
     },
-    async tokenRenewSelf() {
-      return { auth: { lease_duration: 3600 } };
+    async getDriveGpx(driveId) {
+      return { status: 200, data: `<gpx id=\"${driveId}\"/>` };
     },
-    async tokenCreate() {
-      return { auth: { client_token: "new-token" } };
-    },
-    async tokenRevoke() {
-      return { revoked: true };
-    },
-    async tokenRevokeSelf() {
-      return { revoked: true };
+    async request(payload) {
+      calls.request += 1;
+      return {
+        status: 200,
+        ...payload
+      };
     }
   };
 
-  return { configStore, vaultService, calls };
+  return { client, calls };
 }
 
 async function invokeTool(server, name, args = {}) {
@@ -110,286 +76,65 @@ async function invokeTool(server, name, args = {}) {
   return { result, payload };
 }
 
-test("healthcheck returns ok when dependencies are reachable", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "" });
+test("teslamate_health_check returns ok", async () => {
+  const restoreEnv = setEnv({ MCP_ADMIN_AUTH_KEY: "" });
 
   try {
-    const { configStore, vaultService } = createServices();
+    const { client } = createTeslaMateClientMock();
     const server = createMcpServer({
-      name: "skeleton-mcp",
+      name: "teslamate-mcp",
       version: "0.1.0",
-      configStore,
-      vaultService
+      teslamateClient: client
     });
 
-    const { payload } = await invokeTool(server, "healthcheck");
+    const { payload } = await invokeTool(server, "teslamate_health_check");
 
     assert.equal(payload.ok, true);
     assert.equal(payload.status, 200);
-    assert.deepEqual(payload.data, { postgres: "ok", vault: "ok" });
+    assert.equal(payload.data.status, 200);
   } finally {
     restoreEnv();
   }
 });
 
-test("set_secret enforces admin authorization key when configured", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret" });
+test("mutating TeslaMate tools require authorizationKey when admin key is configured", async () => {
+  const restoreEnv = setEnv({ MCP_ADMIN_AUTH_KEY: "super-secret" });
 
   try {
-    const { configStore, vaultService, calls } = createServices();
+    const { client, calls } = createTeslaMateClientMock();
     const server = createMcpServer({
-      name: "skeleton-mcp",
+      name: "teslamate-mcp",
       version: "0.1.0",
-      configStore,
-      vaultService
+      teslamateClient: client
     });
 
-    const unauthorized = await invokeTool(server, "set_secret", {
-      path: "demo",
-      value: { access_token: "abc123" }
+    const unauthorized = await invokeTool(server, "teslamate_suspend_logging", {
+      carId: 1
     });
-
-    assert.equal(unauthorized.result.isError, true);
-    assert.equal(unauthorized.payload.status, 401);
-    assert.match(unauthorized.payload.error, /Unauthorized/);
-    assert.equal(calls.setSecret, 0);
-
-    const authorized = await invokeTool(server, "set_secret", {
-      path: "demo",
-      value: { access_token: "abc123" },
-      authorizationKey: "super-secret"
-    });
-
-    assert.equal(authorized.payload.ok, true);
-    assert.equal(authorized.payload.status, 200);
-    assert.equal(calls.setSecret, 1);
-  } finally {
-    restoreEnv();
-  }
-});
-
-test("set_config enforces admin authorization key when configured", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret" });
-
-  try {
-    const { configStore, vaultService, calls } = createServices();
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
-    });
-
-    const unauthorized = await invokeTool(server, "set_config", {
-      key: "feature.test",
-      value: { enabled: true }
-    });
-
-    assert.equal(unauthorized.result.isError, true);
-    assert.equal(unauthorized.payload.status, 401);
-    assert.equal(calls.setConfig, 0);
-
-    const authorized = await invokeTool(server, "set_config", {
-      key: "feature.test",
-      value: { enabled: true },
-      authorizationKey: "super-secret"
-    });
-
-    assert.equal(authorized.payload.ok, true);
-    assert.equal(authorized.payload.status, 200);
-    assert.equal(calls.setConfig, 1);
-  } finally {
-    restoreEnv();
-  }
-});
-
-test("token_lookup_self enforces admin authorization key when configured", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret" });
-
-  try {
-    const { configStore, vaultService, calls } = createServices();
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
-    });
-
-    const unauthorized = await invokeTool(server, "token_lookup_self", {});
-
-    assert.equal(unauthorized.result.isError, true);
-    assert.equal(unauthorized.payload.status, 401);
-    assert.equal(calls.tokenLookupSelf, 0);
-
-    const authorized = await invokeTool(server, "token_lookup_self", {
-      authorizationKey: "super-secret"
-    });
-
-    assert.equal(authorized.payload.ok, true);
-    assert.equal(authorized.payload.status, 200);
-    assert.equal(calls.tokenLookupSelf, 1);
-  } finally {
-    restoreEnv();
-  }
-});
-
-test("get_secret redacts sensitive fields unless explicitly enabled", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "" });
-
-  try {
-    const { configStore, vaultService } = createServices();
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
-    });
-
-    const redacted = await invokeTool(server, "get_secret", { path: "demo" });
-    assert.equal(redacted.payload.data.access_token, "[REDACTED]");
-    assert.equal(redacted.payload.data.region, "us-east-1");
-  } finally {
-    restoreEnv();
-  }
-
-  const restoreEnvSensitive = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "true", MCP_ADMIN_AUTH_KEY: "" });
-
-  try {
-    const { configStore, vaultService } = createServices();
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
-    });
-
-    const full = await invokeTool(server, "get_secret", { path: "demo" });
-    assert.equal(full.payload.data.access_token, "abc123");
-    assert.equal(full.payload.data.region, "us-east-1");
-  } finally {
-    restoreEnvSensitive();
-  }
-});
-
-test("vault_seed_http_token generates and stores an opaque bearer token", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret", APP_NAME: "skeleton" });
-
-  try {
-    const { configStore, vaultService, calls } = createServices();
-    let firstPayload = null;
-    vaultService.getSecret = async () => {
-      if (!firstPayload) {
-        const error = new Error("404 not found");
-        error.statusCode = 404;
-        throw error;
-      }
-      return firstPayload;
-    };
-    vaultService.setSecret = async (path, value) => {
-      calls.setSecret += 1;
-      calls.setSecretPayloads.push({ path, value });
-      firstPayload = value;
-      return { ok: true, path };
-    };
-
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
-    });
-
-    const unauthorized = await invokeTool(server, "vault_seed_http_token", {
-      userId: "user-123"
-    });
-
     assert.equal(unauthorized.result.isError, true);
     assert.equal(unauthorized.payload.status, 401);
 
-    const authorized = await invokeTool(server, "vault_seed_http_token", {
-      userId: "user-123",
-      tokenId: "tok-123",
-      scopes: ["mcp:invoke", "mcp:read"],
-      audience: "codex",
+    const authorized = await invokeTool(server, "teslamate_suspend_logging", {
+      carId: 1,
       authorizationKey: "super-secret"
     });
-
     assert.equal(authorized.payload.ok, true);
-    assert.equal(authorized.payload.status, 200);
-    assert.equal(typeof authorized.payload.data.token, "string");
-    assert.equal(authorized.payload.data.userId, "user-123");
-    assert.equal(authorized.payload.data.tokenId, "[REDACTED]");
-    assert.deepEqual(authorized.payload.data.scopes, ["mcp:invoke", "mcp:read"]);
-    assert.deepEqual(authorized.payload.data.audience, ["codex"]);
-    assert.equal(calls.setSecret, 1);
-    assert.equal(calls.setSecretPayloads[0].path, "skeleton/http/auth/token-index");
-    assert.equal(Boolean(calls.setSecretPayloads[0].value.tokens), true);
-    assert.equal(Boolean(calls.setSecretPayloads[0].value.users["user-123"].tokens), true);
-    const persistedTokenHash = Object.keys(calls.setSecretPayloads[0].value.users["user-123"].tokens)[0];
-    assert.equal(calls.setSecretPayloads[0].value.tokens[persistedTokenHash].tokenId, "tok-123");
-    assert.equal(calls.setSecretPayloads[0].value.users["user-123"].tokens[persistedTokenHash].tokenId, "tok-123");
-  } finally {
-    restoreEnv();
-  }
-});
+    assert.equal(calls.suspend, 1);
 
-test("vault_seed_oauth_token stores a provided OAuth token in the Vault user structure", async () => {
-  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret", APP_NAME: "skeleton" });
-
-  try {
-    const { configStore, vaultService, calls } = createServices();
-    let firstPayload = null;
-    vaultService.getSecret = async () => {
-      if (!firstPayload) {
-        const error = new Error("404 not found");
-        error.statusCode = 404;
-        throw error;
-      }
-      return firstPayload;
-    };
-    vaultService.setSecret = async (path, value) => {
-      calls.setSecret += 1;
-      calls.setSecretPayloads.push({ path, value });
-      firstPayload = value;
-      return { ok: true, path };
-    };
-
-    const server = createMcpServer({
-      name: "skeleton-mcp",
-      version: "0.1.0",
-      configStore,
-      vaultService
+    const genericUnauthorized = await invokeTool(server, "teslamate_api_request", {
+      method: "POST",
+      path: "/api/car/1/logging/suspend"
     });
+    assert.equal(genericUnauthorized.result.isError, true);
+    assert.equal(genericUnauthorized.payload.status, 401);
 
-    const unauthorized = await invokeTool(server, "vault_seed_oauth_token", {
-      userId: "user-123",
-      token: "oauth-access-token"
-    });
-
-    assert.equal(unauthorized.result.isError, true);
-    assert.equal(unauthorized.payload.status, 401);
-
-    const authorized = await invokeTool(server, "vault_seed_oauth_token", {
-      userId: "user-123",
-      token: "oauth-access-token",
-      tokenId: "tok-oauth-123",
-      scopes: ["openid", "profile"],
-      audience: "my-app",
+    const genericAuthorized = await invokeTool(server, "teslamate_api_request", {
+      method: "POST",
+      path: "/api/car/1/logging/suspend",
       authorizationKey: "super-secret"
     });
-
-    assert.equal(authorized.payload.ok, true);
-    assert.equal(authorized.payload.status, 200);
-  assert.equal(authorized.payload.data.tokenId, "[REDACTED]");
-    assert.deepEqual(authorized.payload.data.scopes, ["openid", "profile"]);
-    assert.deepEqual(authorized.payload.data.audience, ["my-app"]);
-    assert.equal(calls.setSecret, 1);
-    assert.equal(calls.setSecretPayloads[0].path, "skeleton/http/auth/token-index");
-    assert.equal(Boolean(calls.setSecretPayloads[0].value.tokens), true);
-    assert.equal(Boolean(calls.setSecretPayloads[0].value.users["user-123"].tokens), true);
-    const persistedTokenHash = Object.keys(calls.setSecretPayloads[0].value.users["user-123"].tokens)[0];
-    assert.equal(calls.setSecretPayloads[0].value.tokens[persistedTokenHash].tokenType, "oauth2");
-    assert.equal(calls.setSecretPayloads[0].value.users["user-123"].tokens[persistedTokenHash].tokenId, "tok-oauth-123");
+    assert.equal(genericAuthorized.payload.ok, true);
+    assert.equal(calls.request, 1);
   } finally {
     restoreEnv();
   }
