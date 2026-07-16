@@ -29,7 +29,9 @@ function createServices() {
   const calls = {
     setSecret: 0,
     setConfig: 0,
-    tokenLookupSelf: 0
+    tokenLookupSelf: 0,
+    getSecretPaths: [],
+    setSecretPayloads: []
   };
 
   const configStore = {
@@ -62,6 +64,7 @@ function createServices() {
       return ["demo"];
     },
     async getSecret() {
+      calls.getSecretPaths.push("demo");
       return {
         access_token: "abc123",
         region: "us-east-1"
@@ -69,6 +72,7 @@ function createServices() {
     },
     async setSecret(path, value) {
       calls.setSecret += 1;
+      calls.setSecretPayloads.push({ path, value });
       return { ok: true, path, value };
     },
     async deleteSecret(path) {
@@ -264,5 +268,129 @@ test("get_secret redacts sensitive fields unless explicitly enabled", async () =
     assert.equal(full.payload.data.region, "us-east-1");
   } finally {
     restoreEnvSensitive();
+  }
+});
+
+test("vault_seed_http_token generates and stores an opaque bearer token", async () => {
+  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret", APP_NAME: "skeleton" });
+
+  try {
+    const { configStore, vaultService, calls } = createServices();
+    let firstPayload = null;
+    vaultService.getSecret = async () => {
+      if (!firstPayload) {
+        const error = new Error("404 not found");
+        error.statusCode = 404;
+        throw error;
+      }
+      return firstPayload;
+    };
+    vaultService.setSecret = async (path, value) => {
+      calls.setSecret += 1;
+      calls.setSecretPayloads.push({ path, value });
+      firstPayload = value;
+      return { ok: true, path };
+    };
+
+    const server = createMcpServer({
+      name: "skeleton-mcp",
+      version: "0.1.0",
+      configStore,
+      vaultService
+    });
+
+    const unauthorized = await invokeTool(server, "vault_seed_http_token", {
+      userId: "user-123"
+    });
+
+    assert.equal(unauthorized.result.isError, true);
+    assert.equal(unauthorized.payload.status, 401);
+
+    const authorized = await invokeTool(server, "vault_seed_http_token", {
+      userId: "user-123",
+      tokenId: "tok-123",
+      scopes: ["mcp:invoke", "mcp:read"],
+      audience: "codex",
+      authorizationKey: "super-secret"
+    });
+
+    assert.equal(authorized.payload.ok, true);
+    assert.equal(authorized.payload.status, 200);
+    assert.equal(typeof authorized.payload.data.token, "string");
+    assert.equal(authorized.payload.data.userId, "user-123");
+    assert.equal(authorized.payload.data.tokenId, "[REDACTED]");
+    assert.deepEqual(authorized.payload.data.scopes, ["mcp:invoke", "mcp:read"]);
+    assert.deepEqual(authorized.payload.data.audience, ["codex"]);
+    assert.equal(calls.setSecret, 1);
+    assert.equal(calls.setSecretPayloads[0].path, "skeleton/http/auth/token-index");
+    assert.equal(Boolean(calls.setSecretPayloads[0].value.tokens), true);
+    assert.equal(Boolean(calls.setSecretPayloads[0].value.users["user-123"].tokens), true);
+    const persistedTokenHash = Object.keys(calls.setSecretPayloads[0].value.users["user-123"].tokens)[0];
+    assert.equal(calls.setSecretPayloads[0].value.tokens[persistedTokenHash].tokenId, "tok-123");
+    assert.equal(calls.setSecretPayloads[0].value.users["user-123"].tokens[persistedTokenHash].tokenId, "tok-123");
+  } finally {
+    restoreEnv();
+  }
+});
+
+test("vault_seed_oauth_token stores a provided OAuth token in the Vault user structure", async () => {
+  const restoreEnv = setEnv({ MCP_ALLOW_SENSITIVE_OUTPUT: "false", MCP_ADMIN_AUTH_KEY: "super-secret", APP_NAME: "skeleton" });
+
+  try {
+    const { configStore, vaultService, calls } = createServices();
+    let firstPayload = null;
+    vaultService.getSecret = async () => {
+      if (!firstPayload) {
+        const error = new Error("404 not found");
+        error.statusCode = 404;
+        throw error;
+      }
+      return firstPayload;
+    };
+    vaultService.setSecret = async (path, value) => {
+      calls.setSecret += 1;
+      calls.setSecretPayloads.push({ path, value });
+      firstPayload = value;
+      return { ok: true, path };
+    };
+
+    const server = createMcpServer({
+      name: "skeleton-mcp",
+      version: "0.1.0",
+      configStore,
+      vaultService
+    });
+
+    const unauthorized = await invokeTool(server, "vault_seed_oauth_token", {
+      userId: "user-123",
+      token: "oauth-access-token"
+    });
+
+    assert.equal(unauthorized.result.isError, true);
+    assert.equal(unauthorized.payload.status, 401);
+
+    const authorized = await invokeTool(server, "vault_seed_oauth_token", {
+      userId: "user-123",
+      token: "oauth-access-token",
+      tokenId: "tok-oauth-123",
+      scopes: ["openid", "profile"],
+      audience: "my-app",
+      authorizationKey: "super-secret"
+    });
+
+    assert.equal(authorized.payload.ok, true);
+    assert.equal(authorized.payload.status, 200);
+  assert.equal(authorized.payload.data.tokenId, "[REDACTED]");
+    assert.deepEqual(authorized.payload.data.scopes, ["openid", "profile"]);
+    assert.deepEqual(authorized.payload.data.audience, ["my-app"]);
+    assert.equal(calls.setSecret, 1);
+    assert.equal(calls.setSecretPayloads[0].path, "skeleton/http/auth/token-index");
+    assert.equal(Boolean(calls.setSecretPayloads[0].value.tokens), true);
+    assert.equal(Boolean(calls.setSecretPayloads[0].value.users["user-123"].tokens), true);
+    const persistedTokenHash = Object.keys(calls.setSecretPayloads[0].value.users["user-123"].tokens)[0];
+    assert.equal(calls.setSecretPayloads[0].value.tokens[persistedTokenHash].tokenType, "oauth2");
+    assert.equal(calls.setSecretPayloads[0].value.users["user-123"].tokens[persistedTokenHash].tokenId, "tok-oauth-123");
+  } finally {
+    restoreEnv();
   }
 });

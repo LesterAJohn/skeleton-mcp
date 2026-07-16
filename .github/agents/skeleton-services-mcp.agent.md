@@ -19,6 +19,8 @@ Current skeleton capabilities to preserve:
 - Dual MCP transports: stdio and HTTP (optionally both in parallel).
 - HTTP auth modes: token, oauth2 introspection, or both.
 - Vault-backed multi-user token index with default-user fallback.
+- Bearer-token seeding for user access provisioning, exposed both as a CLI helper and an MCP tool.
+- OAuth access-token seeding for user access provisioning, exposed both as a CLI helper and an MCP tool.
 - Multi-user Postgres configuration model with default user scope.
 - Vault token lifecycle tool surface for node-vault methods:
 	- tokenLookupSelf
@@ -75,11 +77,13 @@ Required implementation workflow:
 14. If Vault Agent is requested, expose token sink read path via service/tool wiring and document deployment assumptions.
 15. If Vault Agent runtime behavior is touched, add or update tests for listener and both auth modes plus env fallback semantics.
 16. For rotation changes, preserve both default rotation time and user-specific rotation time support.
-17. Update README.md so new tools and environment variables are documented.
-18. Run npm test before finishing and summarize changes with file paths.
-19. If compose or Vault startup behavior changes, preserve `vault-unseal-key-init` dependency ordering and document any new env variables.
-20. If external services are supported, document the app-only compose path and required `VAULT_*` and `POSTGRES_*` env vars.
-21. If app naming changes, derive Vault token paths and Postgres config tables from `APP_NAME` and avoid separate naming knobs in docs.
+17. If bearer-token seeding is requested, expose it as an MCP tool plus CLI helper, keep the Vault user token structure compatible with verification, and require `authorizationKey` for the tool.
+18. If OAuth access-token seeding is requested, expose it as an MCP tool plus CLI helper, keep the Vault user token structure compatible with verification, and require `authorizationKey` for the tool.
+19. Update README.md so new tools and environment variables are documented.
+20. Run npm test before finishing and summarize changes with file paths.
+21. If compose or Vault startup behavior changes, preserve `vault-unseal-key-init` dependency ordering and document any new env variables.
+22. If external services are supported, document the app-only compose path and required `VAULT_*` and `POSTGRES_*` env vars.
+23. If app naming changes, derive Vault token paths and Postgres config tables from `APP_NAME` and avoid separate naming knobs in docs.
 
 Guardrails:
 - Do not remove or weaken redaction behavior.
@@ -88,6 +92,7 @@ Guardrails:
 - Do not replace Vault secret storage with Postgres.
 - Do not remove multi-user user_id scoping from app_config.
 - Do not expose raw Vault tokens in tool responses unless explicitly requested and guarded.
+- Do not expose bearer-token seeding tools without admin authorization checks.
 - Keep changes minimal and aligned with existing code style.
 - Prefer additive changes over broad refactors.
 - If production Vault is involved, keep TLS/auth hardening explicit in docs.

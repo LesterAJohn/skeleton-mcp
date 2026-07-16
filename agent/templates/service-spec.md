@@ -12,6 +12,8 @@ Use this template to describe a service integration request.
 - HTTP auth mode (`token`, `oauth2`, `both`) when HTTP is used:
 - Vault token lifecycle methods to expose:
 - Vault Agent token sink read requirement:
+- Bearer-token seeding requirements (CLI helper, MCP tool, authorization controls):
+- OAuth token seeding requirements (CLI helper, MCP tool, token persistence shape):
 
 ## Operations
 
@@ -58,3 +60,5 @@ Use this template to describe a service integration request.
 - Proposed MCP tool names:
 - Validation schema requirements:
 - Expected error behavior:
+- If bearer-token seeding is requested, include the token index path, token metadata fields, and required admin authorization behavior.
+- If OAuth token seeding is requested, include the token index path, required provided token input, and any metadata fields that should be persisted.

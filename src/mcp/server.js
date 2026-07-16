@@ -1,5 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { createBearerToken, createVaultTokenEntry, getVaultTokenIndexPath, mergeVaultTokenIndex, normalizeAppName } from "../config/vaultAuthTokenIndex.js";
+import { env } from "../config/env.js";
 import { redactObject } from "../services/security.js";
 
 export function createMcpServer({ name, version, configStore, vaultService }) {
@@ -8,8 +10,7 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
     version
   });
 
-  const allowSensitiveOutput =
-    String(process.env.MCP_ALLOW_SENSITIVE_OUTPUT ?? "").toLowerCase() === "true";
+  const allowSensitiveOutput = String(process.env.MCP_ALLOW_SENSITIVE_OUTPUT ?? "").toLowerCase() === "true";
   const adminAuthKey = process.env.MCP_ADMIN_AUTH_KEY;
 
   function asText(value) {
@@ -28,11 +29,7 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
     const normalized = message.toLowerCase();
     const status = normalized.includes("unauthorized") ? 401 : 500;
 
-    return {
-      ok: false,
-      status,
-      error: message
-    };
+    return { ok: false, status, error: message };
   }
 
   function withErrorHandling(handler) {
@@ -58,6 +55,75 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
     }
   }
 
+  async function seedVaultToken({
+    token,
+    userId,
+    tokenId,
+    scopes,
+    audience,
+    expiresAt,
+    path,
+    tokenType,
+    authorizationKey,
+    includeTokenInResponse
+  }) {
+    assertAuthorized(authorizationKey);
+
+    const appName = normalizeAppName(env.appName);
+    const indexPath = path ?? env.vault.tokenIndexPath ?? getVaultTokenIndexPath(appName);
+    const { tokenHash, entry } = createVaultTokenEntry({
+      userId: userId ?? env.config.defaultUserId,
+      tokenId,
+      token,
+      scopes,
+      audience,
+      expiresAt,
+      tokenType
+    });
+
+    const existingPayload = await vaultService.getSecret(indexPath).catch((error) => {
+      const message = String(error?.message ?? "");
+      if (message.includes("404")) {
+        return null;
+      }
+
+      throw error;
+    });
+
+    const payload = mergeVaultTokenIndex(existingPayload, {
+      userId: userId ?? env.config.defaultUserId,
+      tokenHash,
+      entry
+    });
+
+    await vaultService.setSecret(indexPath, payload);
+
+    return {
+      ok: true,
+      status: 200,
+      data: includeTokenInResponse
+        ? {
+            token,
+            tokenHash,
+            indexPath,
+            userId: entry.userId,
+            tokenId: entry.tokenId,
+            scopes: entry.scopes,
+            audience: entry.audience,
+            expiresAt: entry.expiresAt ?? null
+          }
+        : {
+            tokenHash,
+            indexPath,
+            userId: entry.userId,
+            tokenId: entry.tokenId,
+            scopes: entry.scopes,
+            audience: entry.audience,
+            expiresAt: entry.expiresAt ?? null
+          }
+    };
+  }
+
   server.tool(
     "connection_info",
     "Return MCP server, Vault, and Postgres connection information with secret-safe values.",
@@ -72,9 +138,7 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
           allowSensitiveOutput,
           adminAuthConfigured: Boolean(adminAuthKey),
           configDefaultUserId: process.env.MCP_CONFIG_DEFAULT_USER_ID ?? "default",
-          tokenRotationDefaultIntervalMs: Number(
-            process.env.MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS ?? "86400000"
-          ),
+          tokenRotationDefaultIntervalMs: Number(process.env.MCP_TOKEN_ROTATION_DEFAULT_INTERVAL_MS ?? "86400000"),
           tokenRotationUserIntervalConfigKey:
             process.env.MCP_TOKEN_ROTATION_USER_INTERVAL_CONFIG_KEY ?? "token.rotation.intervalMs"
         },
@@ -131,11 +195,7 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
     withErrorHandling(async ({ key, userId }) => {
       const config = await configStore.getConfig(key, userId);
       if (!config) {
-        return {
-          ok: false,
-          status: 404,
-          error: `No config found for key: ${key} in user scope: ${userId ?? "default"}`
-        };
+        return { ok: false, status: 404, error: `No config found for key: ${key} in user scope: ${userId ?? "default"}` };
       }
 
       return { ok: true, status: 200, data: config };
@@ -296,6 +356,63 @@ export function createMcpServer({ name, version, configStore, vaultService }) {
         data: await vaultService.tokenRevokeSelf()
       };
     })
+  );
+
+  server.tool(
+    "vault_seed_http_token",
+    "Generate an opaque bearer token and store it in the Vault HTTP token index for a user. Requires admin authorization.",
+    {
+      userId: z.string().min(1).optional(),
+      tokenId: z.string().min(1).optional(),
+      scopes: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+      audience: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+      expiresAt: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ userId, tokenId, scopes, audience, expiresAt, path, authorizationKey }) =>
+      seedVaultToken({
+        token: createBearerToken(),
+        userId,
+        tokenId,
+        scopes,
+        audience,
+        expiresAt,
+        path,
+        tokenType: "bearer",
+        authorizationKey,
+        includeTokenInResponse: true
+      })
+    )
+  );
+
+  server.tool(
+    "vault_seed_oauth_token",
+    "Store a provided OAuth access token in the Vault HTTP token index for a user. Requires admin authorization.",
+    {
+      token: z.string().min(1),
+      userId: z.string().min(1).optional(),
+      tokenId: z.string().min(1).optional(),
+      scopes: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+      audience: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+      expiresAt: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      authorizationKey: z.string().min(1).optional()
+    },
+    withErrorHandling(async ({ token, userId, tokenId, scopes, audience, expiresAt, path, authorizationKey }) =>
+      seedVaultToken({
+        token,
+        userId,
+        tokenId,
+        scopes,
+        audience,
+        expiresAt,
+        path,
+        tokenType: "oauth2",
+        authorizationKey,
+        includeTokenInResponse: false
+      })
+    )
   );
 
   server.tool(

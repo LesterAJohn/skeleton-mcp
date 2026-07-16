@@ -12,6 +12,8 @@
     "start:http": "node src/http/index.js",
     "start:both": "node src/start-both.js",
     "vault:unseal-key": "node scripts/vault-unseal-key.js",
+    "vault:seed-http-token": "node scripts/vault-seed-http-token.js",
+    "vault:seed-oauth-token": "node scripts/vault-seed-oauth-token.js",
     "test": "node --test tests/**/*.test.js"
   },
   "engines": {

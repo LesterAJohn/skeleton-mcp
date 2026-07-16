@@ -266,6 +266,56 @@ Notes:
 - `MCP_HTTP_VAULT_TOKEN_REQUIRED_SCOPES` and `MCP_HTTP_VAULT_TOKEN_REQUIRED_AUDIENCE` enforce policy checks.
 - This keeps secrets in Vault under the app-prefixed root while configuration remains in the app-prefixed Postgres table.
 
+### Vault HTTP Token Seeding
+
+Use the helper script to generate an opaque bearer token and store it in the Vault user token structure:
+
+```bash
+npm run vault:seed-http-token -- --user-id default --json
+```
+
+Useful options:
+
+- `--user-id <id>`: Vault user to seed.
+- `--token-id <id>`: Optional token id stored with the entry.
+- `--scopes <list>`: Comma or space separated scopes.
+- `--audience <list>`: Comma or space separated audience values.
+- `--expires-at <value>`: Optional ISO timestamp or unix seconds.
+- `--path <vault-path>`: Override the token index path.
+
+The script writes the token record under the app-prefixed user structure and mirrors the token in the top-level token map for compatibility.
+
+If you need to reseed a user, run the script again with the same `--user-id` and a new `--token-id`.
+
+### Vault OAuth Token Seeding
+
+Use the helper script to store a provided OAuth access token in the Vault user token structure:
+
+```bash
+npm run vault:seed-oauth-token -- --token "$OAUTH_ACCESS_TOKEN" --user-id default --json
+```
+
+Useful options:
+
+- `--token <value>`: OAuth access token to seed.
+- `--user-id <id>`: Vault user to seed.
+- `--token-id <id>`: Optional token id stored with the entry.
+- `--scopes <list>`: Comma or space separated scopes.
+- `--audience <list>`: Comma or space separated audience values.
+- `--expires-at <value>`: Optional ISO timestamp or unix seconds.
+- `--path <vault-path>`: Override the token index path.
+
+The script stores the provided token under the app-prefixed user structure, keeps the top-level token map aligned, and marks the entry as `oauth2` in Vault metadata.
+
+### MCP Tool
+
+The same capability is exposed as an MCP tool for controlled setup workflows:
+
+- `vault_seed_http_token`: generate a bearer token and store it in the Vault HTTP token index for a user.
+- `vault_seed_oauth_token`: store a provided OAuth access token in the Vault HTTP token index for a user.
+
+The tool requires `authorizationKey` when `MCP_ADMIN_AUTH_KEY` is configured.
+
 ### Vault Token Lifecycle MCP Tools
 
 The skeleton exposes node-vault token lifecycle methods as MCP tools:

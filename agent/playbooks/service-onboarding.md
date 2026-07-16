@@ -34,6 +34,8 @@ Use this checklist when adapting the skeleton for a new service.
 - Keep tool responses JSON-serializable and redactable.
 - If requested, expose Vault token lifecycle tools using node-vault methods with strict auth guardrails.
 - If requested, expose a read tool for Vault Agent token sink material needed by the application.
+- If requested, expose bearer-token seeding as a guarded MCP tool and keep the Vault token index shape compatible with the verifier.
+- If requested, expose OAuth token seeding as a guarded MCP tool and keep the Vault token index shape compatible with the verifier.
 
 ## 5. Runtime Wiring
 
