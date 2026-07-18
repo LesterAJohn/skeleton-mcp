@@ -1,20 +1,28 @@
 # Agent Structure
 
-This directory contains Jira-specific implementation guidance for this MCP repository.
-
-## Purpose
-
-Use these docs when evolving this Jira MCP server while preserving transport security, Vault/Postgres integrations, and test coverage.
+This directory stores project-specific playbooks used by the workspace custom agent for adapting this skeleton into MCP servers for additional services.
 
 ## Contents
 
-- `playbooks/service-onboarding.md`: Jira MCP change checklist.
-- `templates/service-spec.md`: structured spec for new Jira capability requests.
-- `.github/prompts/adapt-skeleton-service.prompt.md`: reusable implementation prompt for agent mode.
+- `playbooks/service-onboarding.md`: Step-by-step checklist for adding a new service integration to the MCP skeleton.
+- `templates/service-spec.md`: Structured input template for describing a new service integration request.
+- `.github/prompts/adapt-skeleton-service.prompt.md`: Agent-mode prompt for running structured service adaptation tasks from chat.
 
-## Implementation guardrails
+## How It Is Used
 
-- Keep Jira API integration in `src/services/targetService.js`.
-- Keep mutating tools gated by `authorizationKey` when `MCP_ADMIN_AUTH_KEY` is configured.
-- Keep redaction/security defaults in place.
-- Preserve support for external Vault and Postgres services.
+The VS Code custom agent at `.github/agents/skeleton-services-mcp.agent.md` uses this material as implementation guidance when asked to:
+
+- Add a new external service integration
+- Expose service operations as MCP tools
+- Keep security defaults (redaction and authorization)
+- Preserve dual transport behavior (stdio and HTTP)
+- Preserve HTTP auth modes (token, oauth2, both)
+- Keep secrets in Vault and config in Postgres
+- Maintain multi-user defaults (Vault token fallback user and Postgres config default user)
+- Preserve Vault Raft persistence patterns in both local and production compose stacks
+- Preserve bearer-token seeding for user access provisioning, exposed both as a CLI helper and an MCP tool
+- Preserve OAuth access-token seeding for user access provisioning, exposed both as a CLI helper and an MCP tool
+- Preserve startup ordering that runs the managed unseal key init helper before Vault starts
+- Preserve support for external Vault and Postgres services via app-only compose startup
+- Treat `APP_NAME` as the single naming source for Vault token paths and Postgres config table names
+- Add tests and documentation updates

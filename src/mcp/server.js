@@ -93,8 +93,8 @@ export function createMcpServer({ name, version, serviceClient }) {
   }
 
   server.tool(
-    "jira_connection_info",
-    "Return MCP server and Jira API connection details.",
+    "service_connection_info",
+    "Return MCP server and target service connection details.",
     {},
     withErrorHandling(async () => ({
       ok: true,
@@ -106,13 +106,13 @@ export function createMcpServer({ name, version, serviceClient }) {
           adminAuthConfigured: Boolean(adminAuthKey),
           scopeModel: getScopeModel()
         },
-        jira: serviceClient.getConnectionInfo()
+        service: serviceClient.getConnectionInfo()
       }
     }))
   );
 
   server.tool(
-    "jira_scope_info",
+    "service_scope_info",
     "Return app/user scoping metadata used by Postgres config and Vault token index paths.",
     {
       userId: z.string().min(1).optional()
@@ -125,37 +125,21 @@ export function createMcpServer({ name, version, serviceClient }) {
   );
 
   server.tool(
-    "jira_list_operations",
-    "List Jira operations exposed by this MCP server.",
-    {
-      group: z.string().min(1).optional(),
-      method: z.string().min(1).optional(),
-      keyContains: z.string().min(1).optional()
-    },
-    withErrorHandling(async ({ group, method, keyContains }) => {
-      const normalizedMethod = method ? normalizeMethod(method) : "";
-      const groupFilter = String(group ?? "").trim().toLowerCase();
-      const keyFilter = String(keyContains ?? "").trim().toLowerCase();
-      const operations = serviceClient
-        .listKnownEndpoints()
-        .filter((entry) => !groupFilter || String(entry.group ?? "").toLowerCase() === groupFilter)
-        .filter((entry) => !normalizedMethod || entry.method === normalizedMethod)
-        .filter((entry) => !keyFilter || String(entry.key ?? "").toLowerCase().includes(keyFilter));
-
-      return {
-        ok: true,
-        status: 200,
-        data: {
-          groups: serviceClient.listKnownGroups(),
-          operations
-        }
-      };
-    })
+    "service_list_endpoints",
+    "List documented/implemented target service HTTP endpoints exposed by this MCP server.",
+    {},
+    withErrorHandling(async () => ({
+      ok: true,
+      status: 200,
+      data: {
+        endpoints: serviceClient.listKnownEndpoints()
+      }
+    }))
   );
 
   server.tool(
-    "jira_health_check",
-    "Call Jira /myself endpoint as a connectivity health check.",
+    "service_health_check",
+    "Call target service health check endpoint.",
     {},
     withErrorHandling(async () => ({
       ok: true,
@@ -165,215 +149,59 @@ export function createMcpServer({ name, version, serviceClient }) {
   );
 
   server.tool(
-    "jira_get_myself",
-    "Get current Jira user profile via GET /rest/api/3/myself.",
-    {},
-    withErrorHandling(async () => ({
-      ok: true,
-      status: 200,
-      data: await serviceClient.getMyself()
-    }))
-  );
-
-  server.tool(
-    "jira_list_projects",
-    "List Jira projects via GET /rest/api/3/project/search.",
+    "service_suspend_logging",
+    "Suspend logging for a target service resource id via PUT /api/car/:id/logging/suspend.",
     {
-      startAt: z.number().int().min(0).optional(),
-      maxResults: z.number().int().min(1).optional(),
-      query: z.string().optional(),
-      keys: z.array(z.string().min(1)).optional(),
-      orderBy: z.string().optional()
-    },
-    withErrorHandling(async (args) => ({
-      ok: true,
-      status: 200,
-      data: await serviceClient.listProjects(args)
-    }))
-  );
-
-  server.tool(
-    "jira_get_project",
-    "Get one Jira project via GET /rest/api/3/project/{projectIdOrKey}.",
-    {
-      projectIdOrKey: z.string().min(1),
-      expand: z.string().optional()
-    },
-    withErrorHandling(async ({ projectIdOrKey, expand }) => ({
-      ok: true,
-      status: 200,
-      data: await serviceClient.getProject(projectIdOrKey, expand ? { expand } : undefined)
-    }))
-  );
-
-  server.tool(
-    "jira_search_issues",
-    "Search Jira issues using POST /rest/api/3/search/jql.",
-    {
-      jql: z.string().min(1),
-      maxResults: z.number().int().min(1).optional(),
-      nextPageToken: z.string().optional(),
-      fields: z.array(z.string().min(1)).optional(),
-      expand: z.array(z.string().min(1)).optional(),
-      reconcileIssues: z.array(z.number().int()).optional(),
-      failFast: z.boolean().optional()
-    },
-    withErrorHandling(async (args) => ({
-      ok: true,
-      status: 200,
-      data: await serviceClient.searchIssues(args)
-    }))
-  );
-
-  server.tool(
-    "jira_get_issue",
-    "Get one Jira issue via GET /rest/api/3/issue/{issueIdOrKey}.",
-    {
-      issueIdOrKey: z.string().min(1),
-      fields: z.array(z.string().min(1)).optional(),
-      expand: z.string().optional(),
-      updateHistory: z.boolean().optional()
-    },
-    withErrorHandling(async ({ issueIdOrKey, fields, expand, updateHistory }) => ({
-      ok: true,
-      status: 200,
-      data: await serviceClient.getIssue(issueIdOrKey, {
-        fields,
-        expand,
-        updateHistory
-      })
-    }))
-  );
-
-  server.tool(
-    "jira_create_issue",
-    "Create a Jira issue via POST /rest/api/3/issue.",
-    {
-      fields: z.record(z.string(), z.unknown()),
-      update: z.record(z.string(), z.unknown()).optional(),
-      properties: z.array(z.unknown()).optional(),
-      transition: z.record(z.string(), z.unknown()).optional(),
+      carId: z.union([z.string().min(1), z.number().int().positive()]),
       authorizationKey: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ fields, update, properties, transition, authorizationKey }) => {
+    withErrorHandling(async ({ carId, authorizationKey }) => {
       assertAuthorized(authorizationKey);
       return {
         ok: true,
         status: 200,
-        data: await serviceClient.createIssue(fields, {
-          update,
-          properties,
-          transition
-        })
+        data: await serviceClient.suspendLogging(carId)
       };
     })
   );
 
   server.tool(
-    "jira_edit_issue",
-    "Edit a Jira issue via PUT /rest/api/3/issue/{issueIdOrKey}.",
+    "service_resume_logging",
+    "Resume logging for a target service resource id via PUT /api/car/:id/logging/resume.",
     {
-      issueIdOrKey: z.string().min(1),
-      body: z.record(z.string(), z.unknown()),
-      query: z.record(z.string(), z.unknown()).optional(),
+      carId: z.union([z.string().min(1), z.number().int().positive()]),
       authorizationKey: z.string().min(1).optional()
     },
-    withErrorHandling(async ({ issueIdOrKey, body, query, authorizationKey }) => {
+    withErrorHandling(async ({ carId, authorizationKey }) => {
       assertAuthorized(authorizationKey);
       return {
         ok: true,
         status: 200,
-        data: await serviceClient.editIssue(issueIdOrKey, body, query)
+        data: await serviceClient.resumeLogging(carId)
       };
     })
   );
 
   server.tool(
-    "jira_transition_issue",
-    "Transition a Jira issue via POST /rest/api/3/issue/{issueIdOrKey}/transitions.",
+    "service_get_drive_gpx",
+    "Fetch a drive GPX export by id from GET /drive/:id/gpx.",
     {
-      issueIdOrKey: z.string().min(1),
-      transitionId: z.union([z.string().min(1), z.number().int().positive()]),
-      fields: z.record(z.string(), z.unknown()).optional(),
-      update: z.record(z.string(), z.unknown()).optional(),
-      authorizationKey: z.string().min(1).optional()
+      driveId: z.union([z.string().min(1), z.number().int().positive()])
     },
-    withErrorHandling(async ({ issueIdOrKey, transitionId, fields, update, authorizationKey }) => {
-      assertAuthorized(authorizationKey);
-      return {
-        ok: true,
-        status: 200,
-        data: await serviceClient.transitionIssue(issueIdOrKey, {
-          transition: { id: String(transitionId) },
-          fields,
-          update
-        })
-      };
-    })
+    withErrorHandling(async ({ driveId }) => ({
+      ok: true,
+      status: 200,
+      data: await serviceClient.getDriveGpx(driveId)
+    }))
   );
 
   server.tool(
-    "jira_add_comment",
-    "Add Jira comment via POST /rest/api/3/issue/{issueIdOrKey}/comment.",
-    {
-      issueIdOrKey: z.string().min(1),
-      body: z.unknown(),
-      authorizationKey: z.string().min(1).optional()
-    },
-    withErrorHandling(async ({ issueIdOrKey, body, authorizationKey }) => {
-      assertAuthorized(authorizationKey);
-      return {
-        ok: true,
-        status: 200,
-        data: await serviceClient.addComment(issueIdOrKey, { body })
-      };
-    })
-  );
-
-  server.tool(
-    "jira_operation_request",
-    "Execute a documented Jira operation key from jira_list_operations.",
-    {
-      operationKey: z.string().min(1),
-      pathParams: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-      query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])).optional(),
-      body: z.unknown().optional(),
-      headers: z.record(z.string(), z.string()).optional(),
-      authorizationKey: z.string().min(1).optional()
-    },
-    withErrorHandling(async ({ operationKey, pathParams, query, body, headers, authorizationKey }) => {
-      const endpoint = serviceClient.findKnownEndpoint(operationKey);
-      if (!endpoint) {
-        const error = new Error(`Unknown operationKey: ${operationKey}`);
-        error.status = 400;
-        throw error;
-      }
-
-      if (MUTATING_METHODS.has(endpoint.method)) {
-        assertAuthorized(authorizationKey);
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        data: await serviceClient.requestByKey({
-          key: operationKey,
-          pathParams,
-          query,
-          body,
-          headers
-        })
-      };
-    })
-  );
-
-  server.tool(
-    "jira_api_request",
-    "Generic Jira REST API call for full endpoint coverage.",
+    "service_api_request",
+    "Generic target service HTTP API call. Supports all available endpoints while enforcing host/auth safeguards.",
     {
       method: z.string().min(1),
       path: z.string().min(1),
-      query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])).optional(),
+      query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
       body: z.unknown().optional(),
       headers: z.record(z.string(), z.string()).optional(),
       authorizationKey: z.string().min(1).optional()

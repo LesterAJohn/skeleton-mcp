@@ -1,9 +1,9 @@
 {
-  "name": "jira-mcp",
+  "name": "skeleton-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Jira Cloud MCP server with full REST API coverage",
+  "description": "Skeleton MCP server for integrating target service APIs",
   "main": "src/index.js",
   "scripts": {
     "dev": "node --watch src/index.js",
