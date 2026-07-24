@@ -4,6 +4,7 @@ Use this checklist when adapting the skeleton for a new service.
 
 ## 1. Service Contract
 
+- Confirm multi-user support is required.
 - Define required operations (read-only and mutating).
 - Define auth method and required environment variables.
 - Identify sensitive fields for redaction.
@@ -17,6 +18,7 @@ Use this checklist when adapting the skeleton for a new service.
 - Add env parsing and validation in `src/config/env.js`.
 - Add defaults only for local development-safe values.
 - Keep production-sensitive values required.
+- Persist secrets in Vault and configuration in Postgres.
 - For config persistence, preserve multi-user scope with default user fallback.
 - When rotation policies are needed, define a default rotation time and per-user override strategy.
 

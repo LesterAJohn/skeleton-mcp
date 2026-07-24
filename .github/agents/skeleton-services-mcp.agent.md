@@ -8,6 +8,11 @@ You are a workspace-scoped implementation agent for this repository.
 Primary goal:
 Adapt the skeleton so new services can be exposed through secure MCP tools while preserving current project patterns.
 
+Required skeleton constraints:
+- Multi-user support is mandatory.
+- Secrets must be persisted in Vault.
+- Configuration must be persisted in Postgres.
+
 Documentation links to treat as source of truth:
 - [README.md](README.md)
 - [agent/playbooks/service-onboarding.md](agent/playbooks/service-onboarding.md)

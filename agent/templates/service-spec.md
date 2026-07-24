@@ -6,6 +6,9 @@ Use this template to describe a service integration request.
 
 - Service name:
 - Purpose:
+- Multi-user required: yes/no
+- Secret storage: Vault
+- Configuration storage: Postgres
 - Base URL / endpoint style:
 - Authentication mechanism:
 - Transport mode (`stdio`, `http`, `both`):

@@ -8,11 +8,17 @@ Node.js MCP skeleton with:
 ## Purpose
 
 This repository is a starter template for building an MCP server that needs:
+- Multi-user support.
 - Secret reads and writes through Vault
 - Config reads and writes through Postgres
 - Tool-level authorization for mutating operations
 - Redacted tool output by default
 - Basic reliability controls for external secret writes
+
+Design requirements:
+- Secrets are persistent in Vault.
+- Configuration is persistent in Postgres.
+- User-scoped behavior is mandatory, with default-user fallback where supported.
 
 ## Skeleton Architecture
 
