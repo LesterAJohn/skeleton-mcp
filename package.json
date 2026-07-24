@@ -2,6 +2,7 @@
   "name": "skeleton-mcp",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Skeleton MCP server for integrating target service APIs",
   "main": "src/index.js",
